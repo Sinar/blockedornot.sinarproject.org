@@ -12,4 +12,5 @@ def create_app():
     app.config["LOCATIONS"] = config["LOCATIONS"]
     app.config["DNS_TARGETS"] = config["DNS_TARGETS"]
     app.config["TESTSUITES"] = config["TESTSUITES"]
+    app.config["PORT"] = config["PORT"]
     return app

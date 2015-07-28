@@ -81,5 +81,5 @@ def dns_result(data):
 
 if __name__ == "__main__":
     app.debug=True
-    socketio.run(app, host="0.0.0.0", use_reloader=True)
+    socketio.run(app, host="0.0.0.0", port=app.config["PORT"], use_reloader=True)
     #app.run(host="0.0.0.0", debug=True)
