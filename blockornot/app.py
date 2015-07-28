@@ -11,4 +11,5 @@ def create_app():
     app.config["CELERY_IMPORTS"] = ("worker")
     app.config["LOCATIONS"] = config["LOCATIONS"]
     app.config["DNS_TARGETS"] = config["DNS_TARGETS"]
+    app.config["TESTSUITES"] = config["TESTSUITES"]
     return app

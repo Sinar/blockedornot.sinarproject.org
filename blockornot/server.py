@@ -16,7 +16,19 @@ socketio = SocketIO(app)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # TODO: WTF, simplify this
+    isps = []
+    locations = {}
+    testsuites = {}
+    for location in app.config["LOCATIONS"]:
+        isps.append(location["ISP"])
+        temp_location = locations.setdefault(location["ISP"], [])
+        temp_location.append(location["location"])
+        isp_testsuites = testsuites.setdefault(location["ISP"], {})
+        isp_testsuites[location["location"]] = location["testsuites"]
+
+    testdetail = app.config["TESTSUITES"]
+    return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail)
 
 # Now how do we tidy up this code
 @socketio.on("check http", namespace="/checkhttp")
@@ -26,8 +38,9 @@ def check_http(json):
     if not re.match(r"^http\://", url):
         url = "http://%s" % url
     for entry in app.config["LOCATIONS"]:
-        result = HTTPResult(entry["ISP"], entry["location"], param=url)
-        result.run()
+        if "http" in entry["testsuites"]:
+            result = HTTPResult(entry["ISP"], entry["location"], "http", param=url)
+            result.run()
 
         emit("http received", result.to_json())
 
@@ -35,27 +48,38 @@ def check_http(json):
 @socketio.on("http result", namespace="/checkhttp")
 def http_result(json):
     task_id = json["task_id"]
-    result = HTTPResult(json["ISP"], json["location"], task_id=task_id)
+    result = HTTPResult(json["ISP"], json["location"], json["test_id"], task_id=task_id)
     result.run()
     emit("http received", result.to_json())
 
 @socketio.on("check dns", namespace="/checkdns")
 def check_dns(data):
     url = data["url"]
-    for targets in app.config["DNS_TARGETS"]:
-        result = DNSResult(targets["server"], targets["provider"], param=url)
-        result.run()
 
-        emit("dns received", result.to_json())
+    for entry in app.config["LOCATIONS"]:
+        for dns_test in ["dns_TM", "dns_opendns", "dns_google"]:
+            if dns_test in entry["testsuites"]:
+                targets = app.config["TESTSUITES"][dns_test]
+                # TODO: can bite if we decide to only test certain server.
+                pos = 1
+                for server in targets["servers"]:
+                    test_id = "%s_%s" % (dns_test, pos)
+                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], test_id, param=url)
+                    result.run()
+
+                    emit("dns received", result.to_json())
+                    pos = pos + 1
+
 
 @socketio.on("dns result", namespace="/checkdns")
 def dns_result(data):
     task_id = data["task_id"]
-    result = DNSResult(data["server"], data["provider"], task_id=task_id)
+    result = DNSResult(data["ISP"], data["location"], data["server"], data["provider"], data["test_id"], task_id=task_id)
     result.run()
 
     emit("dns received", result.to_json())
 
 if __name__ == "__main__":
+    app.debug=True
     socketio.run(app, host="0.0.0.0", use_reloader=True)
     #app.run(host="0.0.0.0", debug=True)
