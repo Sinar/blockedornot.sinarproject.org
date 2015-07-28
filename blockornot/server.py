@@ -8,6 +8,7 @@ from worker import dns_task
 from utils import HTTPResult
 from utils import DNSResult
 import re
+import urlparse
 
 
 app = create_app()
@@ -55,6 +56,11 @@ def http_result(json):
 @socketio.on("check dns", namespace="/checkdns")
 def check_dns(data):
     url = data["url"]
+    if not re.match(r"^http\://", url):
+        url = "http://%s" % url
+
+    parsed = urlparse.urlparse(url)
+    url = parsed.netloc
 
     for entry in app.config["LOCATIONS"]:
         for dns_test in ["dns_TM", "dns_opendns", "dns_google"]:
