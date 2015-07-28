@@ -74,13 +74,15 @@
            console.log($("#targetURL").val());
 
             var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
+
             http_check.on('connect', function(){
+
                 http_check.emit('check http', { url: $("#targetURL").val()});
             });
             http_check.on('http received', function(data){
                 var task_id = data["task_id"];
                 if(!$("#"+data["task_id"]).length){
-                    var description = "Request to "+ data["ISP"] + " FROM " + data["location"];
+                    var description = "Request to "+ data["ISP"] + " from " + data["location"];
                     $("#httpTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
                 }
                if(data["status"] == "PENDING"){
@@ -88,7 +90,7 @@
                    console.log(data["task_id"]);
                    $("#"+task_id+" .value").addClass("bg-warning");
                    $("#"+task_id+" .value").text("Pending");
-                   http_check.emit("http result",{ "task_id": data["task_id"] })
+                   http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], location: data["location"] })
                }
                 else if(data["status"] == "SUCCESS"){
                    if(data["status_code"] != 200){
@@ -110,7 +112,7 @@
                    $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
                }
             });
-            dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
+            var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
             dns_check.on("connect", function () {
 
                 dns_check.emit("check dns", { url: $("#targetURL").val()})
@@ -143,7 +145,7 @@
                    console.log(data);
                    $("#"+task_id+" .value").addClass("bg-warning");
                    $("#"+task_id+" .value").text(data["result"]);
-                   dns_check.emit("dns result", { task_id: data["task_id"]})
+                   dns_check.emit("dns result", { task_id: data["task_id"], provider: data["provider"], server: data["server"]})
                }
                 else{
 
