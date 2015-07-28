@@ -71,7 +71,9 @@
 <script type="text/javascript" charset="utf-8">
     $(document).ready(function(){
         $("#callCheck").click(function(){
-           console.log($("#targetURL").val());
+            console.log($("#targetURL").val());
+            $("#httpTable tbody").empty();
+            $("#dnsTable tbody").empty();
 
             var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
 
@@ -154,6 +156,9 @@
                    $("#"+task_id+" .value").text("ERROR");
                }
             });
+
+            dns_check.disconnect();
+            http_check.disconnect();
 
         });
 
