@@ -65,8 +65,9 @@ class HTTPResult(BaseResult):
         # we just use the honor system to trust that the server is running in the right location
         # TODO: make queue tagged with location ISP
         self.output["location"] = location
-        self.queue = location.lower().replace(" ","_")
         self.output["ISP"] = isp
+        queue_name = "%s %s" % (location, isp)
+        self.queue = queue_name.lower().replace(" ","_")
 
     def run(self):
         if not self.task_id:
