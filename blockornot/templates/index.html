@@ -70,95 +70,95 @@
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
     $(document).ready(function(){
-        $("#callCheck").click(function(){
-            console.log($("#targetURL").val());
-            $("#httpTable tbody").empty();
-            $("#dnsTable tbody").empty();
+        var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
 
-            var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
+        http_check.on('connect', function(){
 
-            http_check.on('connect', function(){
 
-                http_check.emit('check http', { url: $("#targetURL").val()});
-            });
-            http_check.on('http received', function(data){
-                var task_id = data["task_id"];
-                if(!$("#"+data["task_id"]).length){
-                    var description = "Request to "+ data["ISP"] + " from " + data["location"];
-                    $("#httpTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
-                }
-               if(data["status"] == "PENDING"){
-                   $("#httpResult").text("Pending");
-                   console.log(data["task_id"]);
-                   $("#"+task_id+" .value").addClass("bg-warning");
-                   $("#"+task_id+" .value").text("Pending");
-                   http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], location: data["location"] })
-               }
-                else if(data["status"] == "SUCCESS"){
-                   if(data["status_code"] != 200){
-                       console.log(data);
-                       $("#"+task_id+" .value").removeClass("bg-warning");
-                       $("#"+task_id+" .value").addClass("bg-danger");
-                       $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
-                   }
-                   else{
-                       console.log(data);
-                       $("#"+task_id+" .value").removeClass("bg-warning");
-                       $("#"+task_id+" .value").addClass("bg-success");
-                       $("#"+task_id+" .value").text("Success! status code: "+data["status_code"]);
-                   }
-               }
-                else{
+        });
+        http_check.on('http received', function(data){
+            var task_id = data["task_id"];
+            if(!$("#"+data["task_id"]).length){
+                var description = "Request to "+ data["ISP"] + " from " + data["location"];
+                $("#httpTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
+            }
+           if(data["status"] == "PENDING"){
+               $("#httpResult").text("Pending");
+               console.log(data["task_id"]);
+               $("#"+task_id+" .value").addClass("bg-warning");
+               $("#"+task_id+" .value").text("Pending");
+               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], location: data["location"] })
+           }
+            else if(data["status"] == "SUCCESS"){
+               if(data["status_code"] != 200){
+                   console.log(data);
                    $("#"+task_id+" .value").removeClass("bg-warning");
                    $("#"+task_id+" .value").addClass("bg-danger");
                    $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
                }
-            });
-            var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
-            dns_check.on("connect", function () {
-
-                dns_check.emit("check dns", { url: $("#targetURL").val()})
-            });
-            dns_check.on("dns received", function (data) {
-                console.log("DNS CHECK");
-                console.log(data);
-                var task_id = data["task_id"];
-                if(!$("#"+data["task_id"]).length){
-
-                    var description = "DNS Request to "+ data["provider"] + " with IP " + data["server"];
-                    $("#dnsTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
-                }
-               if(data["status"] == "SUCCESS"){
-                   if(data["result"] == "Resolved properly"){
-
-                       $("#"+task_id+" .value").removeClass("bg-warning");
-                       $("#"+task_id+" .value").addClass("bg-success");
-                       $("#"+task_id+" .value").text(data["result"]);
-                   }
-                   else{
-
-                       $("#"+task_id+" .value").removeClass("bg-warning");
-                       $("#"+task_id+" .value").addClass("bg-danger");
-                       $("#"+task_id+" .value").text(data["result"]);
-
-                   }
-               }
-               else if(data["status"] == "PENDING"){
+               else{
                    console.log(data);
-                   $("#"+task_id+" .value").addClass("bg-warning");
-                   $("#"+task_id+" .value").text(data["result"]);
-                   dns_check.emit("dns result", { task_id: data["task_id"], provider: data["provider"], server: data["server"]})
+                   $("#"+task_id+" .value").removeClass("bg-warning");
+                   $("#"+task_id+" .value").addClass("bg-success");
+                   $("#"+task_id+" .value").text("Success! status code: "+data["status_code"]);
                }
-                else{
+           }
+            else{
+               $("#"+task_id+" .value").removeClass("bg-warning");
+               $("#"+task_id+" .value").addClass("bg-danger");
+               $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
+           }
+        });
+        var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
+        dns_check.on("connect", function () {
+
+
+        });
+        dns_check.on("dns received", function (data) {
+            console.log("DNS CHECK");
+            console.log(data);
+            var task_id = data["task_id"];
+            if(!$("#"+data["task_id"]).length){
+
+                var description = "DNS Request to "+ data["provider"] + " with IP " + data["server"];
+                $("#dnsTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
+            }
+           if(data["status"] == "SUCCESS"){
+               if(data["result"] == "Resolved properly"){
+
+                   $("#"+task_id+" .value").removeClass("bg-warning");
+                   $("#"+task_id+" .value").addClass("bg-success");
+                   $("#"+task_id+" .value").text(data["result"]);
+               }
+               else{
 
                    $("#"+task_id+" .value").removeClass("bg-warning");
                    $("#"+task_id+" .value").addClass("bg-danger");
-                   $("#"+task_id+" .value").text("ERROR");
-               }
-            });
+                   $("#"+task_id+" .value").text(data["result"]);
 
-            dns_check.disconnect();
-            http_check.disconnect();
+               }
+           }
+           else if(data["status"] == "PENDING"){
+               console.log(data);
+               $("#"+task_id+" .value").addClass("bg-warning");
+               $("#"+task_id+" .value").text(data["result"]);
+               dns_check.emit("dns result", { task_id: data["task_id"], provider: data["provider"], server: data["server"]})
+           }
+            else{
+
+               $("#"+task_id+" .value").removeClass("bg-warning");
+               $("#"+task_id+" .value").addClass("bg-danger");
+               $("#"+task_id+" .value").text("ERROR");
+           }
+        });
+
+
+        $("#callCheck").click(function(){
+            console.log($("#targetURL").val());
+            $("#httpTable tbody").empty();
+            $("#dnsTable tbody").empty();
+            http_check.emit('check http', { url: $("#targetURL").val()});
+            dns_check.emit("check dns", { url: $("#targetURL").val()})
 
         });
 
