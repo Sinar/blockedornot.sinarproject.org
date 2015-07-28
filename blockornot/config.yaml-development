@@ -1,0 +1,17 @@
+CELERY_BROKER_URL: redis://localhost:6379/0
+CELERY_RESULT_BACKEND: redis://localhost:6379/0
+
+LOCATIONS:
+  - location: subang
+    ISP: TM
+    country: Malaysia
+
+DNS_TARGETS:
+  - server: 8.8.8.8
+    provider: google
+  - server: 8.8.4.4
+    provider: google
+  - server: 208.67.222.222
+    provider: opendns
+  - server: 208.67.220.220
+    provider: opendns
