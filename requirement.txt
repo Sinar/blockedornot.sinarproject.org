@@ -14,5 +14,7 @@ kombu==3.0.26
 MarkupSafe==0.23
 pytz==2015.4
 PyYAML==3.11
+redis==2.10.3
+requests==2.7.0
 Werkzeug==0.10.4
 wheel==0.24.0
