@@ -31,37 +31,48 @@
                 </form>
             </div>
         </div>
-
-        <div class="container">
-            <h4>HTTP Result</h4>
-            <table class="table" id="httpTable">
-                <thead>
-                    <tr>
-                        <td>Test from</td>
-                        <td>Result</td>
-                    </tr>
-                </thead>
-                <tbody>
-
-                </tbody>
-            </table>
-        </div>
-
-        <div class="container">
-            <h4>DNS Result</h4>
-            <table class="table" id="dnsTable">
-                <thead>
-                    <tr>
-                        <td>Test from</td>
-                        <td>Result</td>
-                    </tr>
-                </thead>
-                <tbody>
-
-                </tbody>
-            </table>
-        </div>
     </div>
+    {% for isp in isps %}
+        <div class="container" id="{{isp}}">
+            <h3>{{isp}}</h3>
+            {% for location in locations[isp] %}
+
+                <div class="container {{location}}">
+                    <h4>location: {{location}}</h4>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <td>Test</td>
+                                <td>Test Result</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for testsuite in testsuites[isp][location] %}
+
+                                {% if testsuite == "http" %}
+                                    <tr>
+                                        <td>{{testdetail[testsuite]["description"]}}</td>
+                                        <td class="{{testsuite}}"></td>
+                                    </tr>
+                                {% elif testdetail[testsuite]["servers"] %}
+                                    {% for server in testdetail[testsuite]["servers"] %}
+                                    <tr>
+                                        <td>{{testdetail[testsuite]["description"]}}. testing server {{server}}</td>
+                                        <td class="{{testsuite}}_{{loop.index}}"></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+
+
 
 </body>
 <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
@@ -78,35 +89,33 @@
         });
         http_check.on('http received', function(data){
             var task_id = data["task_id"];
-            if(!$("#"+data["task_id"]).length){
-                var description = "Request to "+ data["ISP"] + " from " + data["location"];
-                $("#httpTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
-            }
+            //what the fuck is this shit
+            current_element = "#"+ data["ISP"] + " ." + data["location"] + " ." + data["test_id"];
            if(data["status"] == "PENDING"){
-               $("#httpResult").text("Pending");
                console.log(data["task_id"]);
-               $("#"+task_id+" .value").addClass("bg-warning");
-               $("#"+task_id+" .value").text("Pending");
-               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], location: data["location"] })
+
+               $(current_element).addClass("bg-warning");
+               $(current_element).text("Pending");
+               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], test_id: data["test_id"], location: data["location"] })
            }
             else if(data["status"] == "SUCCESS"){
                if(data["status_code"] != 200){
                    console.log(data);
-                   $("#"+task_id+" .value").removeClass("bg-warning");
-                   $("#"+task_id+" .value").addClass("bg-danger");
-                   $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
+                   $(current_element).removeClass("bg-warning");
+                   $(current_element).addClass("bg-danger");
+                   $(current_element).text("Error status code: "+data["status_code"]);
                }
                else{
                    console.log(data);
-                   $("#"+task_id+" .value").removeClass("bg-warning");
-                   $("#"+task_id+" .value").addClass("bg-success");
-                   $("#"+task_id+" .value").text("Success! status code: "+data["status_code"]);
+                   $(current_element).removeClass("bg-warning");
+                   $(current_element).addClass("bg-success");
+                   $(current_element).text("Success! status code: "+data["status_code"]);
                }
            }
             else{
-               $("#"+task_id+" .value").removeClass("bg-warning");
-               $("#"+task_id+" .value").addClass("bg-danger");
-               $("#"+task_id+" .value").text("Error status code: "+data["status_code"]);
+               $(current_element).removeClass("bg-warning");
+               $(current_element).addClass("bg-danger");
+               $(current_element).text("Error status code: "+data["status_code"]);
            }
         });
         var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
@@ -118,45 +127,47 @@
             console.log("DNS CHECK");
             console.log(data);
             var task_id = data["task_id"];
-            if(!$("#"+data["task_id"]).length){
+            current_element = "#"+ data["ISP"] + " ." + data["location"] + " ." + data["test_id"];
 
-                var description = "DNS Request to "+ data["provider"] + " with IP " + data["server"];
-                $("#dnsTable tbody").append("<tr id=\""+ task_id +"\"><td>"+ description+ "</td><td class=\"value\"></td></tr>");
-            }
            if(data["status"] == "SUCCESS"){
                if(data["result"] == "Resolved properly"){
 
-                   $("#"+task_id+" .value").removeClass("bg-warning");
-                   $("#"+task_id+" .value").addClass("bg-success");
-                   $("#"+task_id+" .value").text(data["result"]);
+                   $(current_element).removeClass("bg-warning");
+                   $(current_element).addClass("bg-success");
+                   $(current_element).text(data["result"]);
                }
                else{
 
-                   $("#"+task_id+" .value").removeClass("bg-warning");
-                   $("#"+task_id+" .value").addClass("bg-danger");
-                   $("#"+task_id+" .value").text(data["result"]);
+                   $(current_element).removeClass("bg-warning");
+                   $(current_element).addClass("bg-danger");
+                   $(current_element).text(data["result"]);
 
                }
            }
            else if(data["status"] == "PENDING"){
                console.log(data);
-               $("#"+task_id+" .value").addClass("bg-warning");
-               $("#"+task_id+" .value").text(data["result"]);
-               dns_check.emit("dns result", { task_id: data["task_id"], provider: data["provider"], server: data["server"]})
+               $(current_element).addClass("bg-warning");
+               $(current_element).text("Pending");
+               dns_check.emit("dns result", {
+                   location: data["location"],
+                   ISP: data["ISP"],
+                   task_id: data["task_id"],
+                   provider: data["provider"],
+                   server: data["server"],
+                   test_id: data["test_id"]})
            }
             else{
 
-               $("#"+task_id+" .value").removeClass("bg-warning");
-               $("#"+task_id+" .value").addClass("bg-danger");
-               $("#"+task_id+" .value").text("ERROR");
+               $(current_element).removeClass("bg-warning");
+               $(current_element).addClass("bg-danger");
+               $(current_element).text("ERROR");
            }
         });
 
 
         $("#callCheck").click(function(){
             console.log($("#targetURL").val());
-            $("#httpTable tbody").empty();
-            $("#dnsTable tbody").empty();
+
             http_check.emit('check http', { url: $("#targetURL").val()});
             dns_check.emit("check dns", { url: $("#targetURL").val()})
 
