@@ -9,6 +9,7 @@ from utils import HTTPResult
 from utils import DNSResult
 import re
 import urlparse
+import logging
 
 
 app = create_app()
@@ -18,11 +19,11 @@ socketio = SocketIO(app)
 @app.route("/")
 def index():
     # TODO: WTF, simplify this
-    isps = []
+    isps = set()
     locations = {}
     testsuites = {}
     for location in app.config["LOCATIONS"]:
-        isps.append(location["ISP"])
+        isps.add(location["ISP"])
         temp_location = locations.setdefault(location["ISP"], [])
         temp_location.append(location["location"])
         isp_testsuites = testsuites.setdefault(location["ISP"], {})
