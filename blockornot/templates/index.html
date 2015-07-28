@@ -20,18 +20,21 @@
         </div>
 
     </div>
-    <div class="container" role="main">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2">
-                <form class="form-inline">
-                    <div class="form-group">
-                        <input type="text" class="form-control" id="targetURL" placeholder="www.sarawakreport.com"/>
-                    </div>
-                    <button type="button" class="btn btn-default" id="callCheck">Check</button>
-                </form>
+    <div class="jumbotron">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8 col-lg-offset-2">
+                    <form class="form-inline" id="queryForm">
+                        <div class="form-group">
+                            <input type="text" class="form-control" id="targetURL" placeholder="www.sarawakreport.org"/>
+                        </div>
+                        <button type="button" class="btn btn-default" id="callCheck">Check</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
+
     {% for isp in isps %}
         <div class="container" id="{{isp}}">
             <h3>{{isp}}</h3>
