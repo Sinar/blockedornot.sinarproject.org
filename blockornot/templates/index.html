@@ -24,6 +24,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-8 col-lg-offset-2">
+                    <div id="error_msg"></div>
                     <form class="form-inline" id="queryForm">
                         <div class="form-group">
                             <input type="text" class="form-control" id="targetURL" placeholder="www.sarawakreport.org"/>
@@ -168,11 +169,17 @@
 
 
         $("#callCheck").click(function(){
+
             console.log($("#targetURL").val());
+            $("#error_msg").empty();
+            if($("#targetURL").val() != "") {
 
-            http_check.emit('check http', { url: $("#targetURL").val()});
-            dns_check.emit("check dns", { url: $("#targetURL").val()})
-
+                http_check.emit('check http', {url: $("#targetURL").val()});
+                dns_check.emit("check dns", {url: $("#targetURL").val()})
+            }
+            else{
+                $("#error_msg").append("<div class=\"alert alert-danger\" role=\"alert\">Form cannot be empty</div>");
+            }
         });
 
     });
