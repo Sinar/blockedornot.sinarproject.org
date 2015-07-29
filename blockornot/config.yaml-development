@@ -1,10 +1,44 @@
 CELERY_BROKER_URL: redis://localhost:6379/0
 CELERY_RESULT_BACKEND: redis://localhost:6379/0
-
+# This might be useless for javascript
+PORT: 5000
 LOCATIONS:
-  - location: subang
+  - location: subang jaya
     ISP: TM
     country: Malaysia
+    testsuites:
+      - http
+      - dns_TM
+      - dns_opendns
+      - dns_google
+
+
+
+
+# Maybe we should store in a db instead
+TESTSUITES:
+  dns_opendns:
+    provider: opendns
+    description: DNS test on OpenDNS servers
+    servers:
+      - 208.67.222.222
+      - 208.67.220.220
+  dns_google:
+    provider: google
+    description: DNS test on google DNS server
+    servers:
+      - 8.8.8.8
+      - 8.8.4.4
+  dns_TM:
+    provider: TM
+    description: DNS test on TMNet server
+    servers:
+      - 202.188.0.133
+      - 202.188.1.5
+      - 1.9.1.9
+  http:
+    description: Test fetching website
+
 
 DNS_TARGETS:
   - server: 8.8.8.8
@@ -15,3 +49,7 @@ DNS_TARGETS:
     provider: opendns
   - server: 208.67.220.220
     provider: opendns
+  - server: 202.188.0.133
+    provider: TM
+  - server: 202.188.1.5
+    provider: TM
