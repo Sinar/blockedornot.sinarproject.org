@@ -40,7 +40,7 @@
             <h3>{{isp}}</h3>
             {% for location in locations[isp] %}
 
-                <div class="container {{location}}">
+                <div class="container {{location|replace(' ', '_')}}">
                     <h4>location: {{location}}</h4>
                     <table class="table">
                         <thead>
@@ -93,7 +93,7 @@
         http_check.on('http received', function(data){
             var task_id = data["task_id"];
             //what the fuck is this shit
-            current_element = "#"+ data["ISP"] + " ." + data["location"] + " ." + data["test_id"];
+            current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " ." + data["test_id"];
            if(data["status"] == "PENDING"){
                console.log(data["task_id"]);
 
@@ -130,7 +130,7 @@
             console.log("DNS CHECK");
             console.log(data);
             var task_id = data["task_id"];
-            current_element = "#"+ data["ISP"] + " ." + data["location"] + " ." + data["test_id"];
+            current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " ." + data["test_id"];
 
            if(data["status"] == "SUCCESS"){
                if(data["result"] == "Resolved properly"){
