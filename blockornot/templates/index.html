@@ -106,13 +106,13 @@
                    console.log(data);
                    $(current_element).removeClass("bg-warning");
                    $(current_element).addClass("bg-danger");
-                   $(current_element).text("Error status code: "+data["status_code"]);
+                   $(current_element).text("Error status code: "+data["status_code"] + " " + data["reason"]);
                }
                else{
                    console.log(data);
                    $(current_element).removeClass("bg-warning");
                    $(current_element).addClass("bg-success");
-                   $(current_element).text("Success! status code: "+data["status_code"]);
+                   $(current_element).text("Success! status code: "+data["status_code"] + " " + data["reason"]);
                }
            }
             else{
@@ -133,17 +133,16 @@
             current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " ." + data["test_id"];
 
            if(data["status"] == "SUCCESS"){
-               if(data["result"] == "Resolved properly"){
+               if(data["status_code"] == "OK"){
 
                    $(current_element).removeClass("bg-warning");
                    $(current_element).addClass("bg-success");
-                   $(current_element).text(data["result"]);
+                   $(current_element).text(data["status_code"] + " " + data["reason"]);
                }
                else{
-
                    $(current_element).removeClass("bg-warning");
                    $(current_element).addClass("bg-danger");
-                   $(current_element).text(data["result"]);
+                   $(current_element).text(data["status_code"] + " " + data["reason"]);
 
                }
            }
@@ -157,13 +156,13 @@
                    task_id: data["task_id"],
                    provider: data["provider"],
                    server: data["server"],
-                   test_id: data["test_id"]})
+                   test_id: data["test_id"]});
            }
             else{
 
                $(current_element).removeClass("bg-warning");
                $(current_element).addClass("bg-danger");
-               $(current_element).text("ERROR");
+               $(current_element).text(data["status_code"] + " " + data["reason"]);
            }
         });
 

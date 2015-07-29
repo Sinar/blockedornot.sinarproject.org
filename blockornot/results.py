@@ -4,8 +4,13 @@ from celery import states
 from worker import http_task
 from worker import dns_task
 import logging
+import re
 
 app = create_app()
+
+# What is the more robust way to find out whether a page is blocked by mcmc from html?
+MCMC_BLOCK_PAGE_PATTERN = r"This website is not available in Malaysia as it violates"
+MCMC_BLOCK_PAGE_HEADER = r"Makluman/Notification"
 
 # TODO: Reduce the redirection. What the fuck man...
 # This is the result object
@@ -26,6 +31,7 @@ class BaseResult(object):
         self.output = {}
         # this is for used by frontend to send data to.
         # TODO: Refactor this, tight coupling suck
+        # TODO: Putting frontend stuff to here is crazy stupid
         self.test_id = test_id
 
         # each worker will listen to 1 queue
@@ -36,6 +42,7 @@ class BaseResult(object):
         queue_name = "%s %s" % (location, isp)
         self.queue = queue_name.lower().replace(" ","_")
         self.output["test_id"] = self.test_id
+        self.reason = ""
 
     def run(self):
         if not self.task_id:
@@ -75,12 +82,21 @@ class BaseResult(object):
 class HTTPResult(BaseResult):
     def __init__(self, isp, location, test_id, param=None, task_id=None):
         super(HTTPResult, self).__init__(isp, location, http_task, test_id, param=param, task_id=task_id)
+        self.mcmc_pattern = re.compile(MCMC_BLOCK_PAGE_PATTERN)
+        self.mcmc_header = re.compile(MCMC_BLOCK_PAGE_HEADER)
 
     def prepare_result(self):
         if self.status == states.SUCCESS:
-            self.output["status_code"] = self.result.status_code
+            status_code, content, self.reason = self.result
+            self.output["status_code"] = status_code
             # Because error result is stored in content
-            self.output["content"] = self.result.content
+            self.output["content"] = content
+            if self.mcmc_header.search(content):
+                if self.mcmc_pattern.search(content):
+                    self.status = states.FAILURE
+
+            self.output["reason"] = self.reason
+
 
 
 class DNSResult(BaseResult):
@@ -93,5 +109,8 @@ class DNSResult(BaseResult):
 
     def prepare_result(self):
         if self.status == states.SUCCESS:
-            self.output["result"] = self.result
-
+            self.output["status_code"], self.reason = self.result
+            if self.output["status_code"] == "Error":
+                self.status = states.FAILURE
+            self.output["reason"] = self.reason
+            logging.warn(self.output)

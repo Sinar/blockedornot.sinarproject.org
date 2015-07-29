@@ -5,8 +5,8 @@ from flask.ext.socketio import SocketIO
 from flask.ext.socketio import emit
 from worker import http_task
 from worker import dns_task
-from utils import HTTPResult
-from utils import DNSResult
+from results import HTTPResult
+from results import DNSResult
 import re
 import urlparse
 import logging
@@ -32,6 +32,7 @@ def index():
     testdetail = app.config["TESTSUITES"]
     return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail)
 
+# TODO: See if we can append to table instead of manually create table row.Forcing a html element id into backend is crazy stupid
 # Now how do we tidy up this code
 @socketio.on("check http", namespace="/checkhttp")
 def check_http(json):
@@ -71,7 +72,9 @@ def check_dns(data):
                 pos = 1
                 for server in targets["servers"]:
                     test_id = "%s_%s" % (dns_test, pos)
-                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], test_id, param=url)
+                    logging.warn(server)
+                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], test_id,
+                                       param=(url, server))
                     result.run()
 
                     emit("dns received", result.to_json())
