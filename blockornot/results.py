@@ -19,7 +19,7 @@ class ResultException(Exception):
     pass
 
 class BaseResult(object):
-    def __init__(self, isp, location, task_func, test_type, param=None, task_id=None):
+    def __init__(self, isp, location, task_func, test_type, transaction_id, param=None, task_id=None):
         if not (param or task_id):
             raise ResultException("Either supply Parameter or Task ID ")
         self.config = app.config
@@ -43,6 +43,7 @@ class BaseResult(object):
         queue_name = "%s %s" % (location, isp)
         self.queue = queue_name.lower().replace(" ","_")
         self.output["test_type"] = self.test_type
+        self.output["transaction_id"] = transaction_id
 
         self.reason = ""
 
@@ -83,8 +84,8 @@ class BaseResult(object):
 
 
 class HTTPResult(BaseResult):
-    def __init__(self, isp, location, test_type, param=None, task_id=None):
-        super(HTTPResult, self).__init__(isp, location, http_task, test_type, param=param, task_id=task_id)
+    def __init__(self, isp, location, test_type, transaction_id,  param=None, task_id=None):
+        super(HTTPResult, self).__init__(isp, location, http_task, test_type, transaction_id, param=param, task_id=task_id)
         self.mcmc_pattern = re.compile(MCMC_BLOCK_PAGE_PATTERN)
         self.mcmc_header = re.compile(MCMC_BLOCK_PAGE_HEADER)
         self.description = "Test fetching a website on %s network" % isp
@@ -93,6 +94,8 @@ class HTTPResult(BaseResult):
         if self.status == states.SUCCESS:
             status_code, content, self.reason = self.result
             self.output["status_code"] = status_code
+            if status_code != 200:
+                self.status = states.FAILURE
             # Because error result is stored in content
             self.output["content"] = content
             if self.mcmc_header.search(content):
@@ -104,8 +107,8 @@ class HTTPResult(BaseResult):
 
 
 class DNSResult(BaseResult):
-    def __init__(self, isp, location, server, provider, test_type, param=None, task_id=None):
-        super(DNSResult, self).__init__(isp, location, dns_task, test_type, param=param, task_id=task_id)
+    def __init__(self, isp, location, server, provider, test_type, transaction_id, param=None, task_id=None):
+        super(DNSResult, self).__init__(isp, location, dns_task, test_type, transaction_id, param=param, task_id=task_id)
         self.output["server"] = server
         self.output["provider"] = provider
         self.description = "DNS Testing with DNS Server %s on %s network" % (server, provider)
@@ -120,9 +123,9 @@ class DNSResult(BaseResult):
 
 
 class HttpDpiTamperingResult(BaseResult):
-    def __init__(self, isp, location, test_type, param=None, task_id=None):
+    def __init__(self, isp, location, test_type, transaction_id, param=None, task_id=None):
         super(HttpDpiTamperingResult, self).__init__(isp, location, http_dpi_tampering_task, test_type,
-                                                     param=param, task_id=task_id)
+                                                     transaction_id, param=param, task_id=task_id)
 
     def prepare_result(self):
         if self.status == states.SUCCESS:

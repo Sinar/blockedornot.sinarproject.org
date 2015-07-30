@@ -68,163 +68,59 @@
 
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
+    function generateUUID(){
+        var d = new Date().getTime();
+        var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = (d + Math.random()*16)%16 | 0;
+            d = Math.floor(d/16);
+            return (c=='x' ? r : (r&0x3|0x8)).toString(16);
+        });
+        return uuid;
+    }
     $(document).ready(function(){
-        // TODO: I think the code here can be consolidated too
-        var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
 
-        http_check.on('connect', function(){
-
-
-        });
-        http_check.on('http received', function(data){
+        var transaction_id = null;
+        var check = io.connect("http://" + document.domain+":" + location.port + "/check");
+        check.on("result_received", function(data){
             var task_id = data["task_id"];
-            //what the fuck is this shit
             var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
             var task_element = "#" + task_id;
             var task_value_element = task_element + " .value";
             if(!$(task_element).length){
                    var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
                     $(current_element + " tbody").append(task_row);
-
             }
-           if(data["status"] == "PENDING"){
-               console.log(data["task_id"]);
 
-
-               $(task_value_element).addClass("bg-warning");
-               $(task_value_element).text("Pending");
-               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], test_type: data["test_type"], location: data["location"] })
-           }
+            if(data["status"] ==  "PENDING"){
+                $(task_value_element).addClass("bg-warning");
+                $(task_value_element).text("Working......");
+                check.emit("check_result", data);
+                // TODO: A smarter way is have a backend to post back then send message.
+                // TODO: See if we can use a webhook style instead of polling backend
+            }
             else if(data["status"] == "SUCCESS"){
-               if(data["status_code"] != 200){
-                   console.log(data);
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-danger");
-                   $(task_value_element).text("Error status code: "+data["status_code"] + " " + data["reason"]);
-               }
-               else{
-                   console.log(data);
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-success");
-                   $(task_value_element).text("Success! status code: "+data["status_code"] + " " + data["reason"]);
-               }
-           }
+                $(task_value_element).removeClass("bg-warning");
+                $(task_value_element).addClass("bg-success");
+                $(task_value_element).text(data["reason"] + " : " + data["status_code"]);
+            }
             else{
-               $(task_value_element).removeClass("bg-warning");
-               $(task_value_element).addClass("bg-danger");
-               $(task_value_element).text("Error status code: "+data["status_code"]);
-           }
-        });
-        var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
-        dns_check.on("connect", function () {
-
-
-        });
-        dns_check.on("dns received", function (data) {
-            console.log("DNS CHECK");
-            console.log(data);
-            var task_id = data["task_id"];
-            var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
-            var task_element = "#" + task_id;
-            var task_value_element = task_element + " .value";
-            if(!$(task_element).length){
-                   var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
-                    $(current_element + " tbody").append(task_row);
-
-               }
-           if(data["status"] == "SUCCESS"){
-               if(data["status_code"] == "OK"){
-
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-success");
-                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-               }
-               else{
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-danger");
-                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-
-               }
-           }
-           else if(data["status"] == "PENDING"){
-               console.log(data);
-
-               $(task_value_element).addClass("bg-warning");
-               $(task_value_element).text("Pending");
-               dns_check.emit("dns result", {
-                   location: data["location"],
-                   ISP: data["ISP"],
-                   task_id: data["task_id"],
-                   provider: data["provider"],
-                   server: data["server"],
-                   test_type: data["test_type"]});
-           }
-            else{
-
-               $(task_value_element).removeClass("bg-warning");
-               $(task_value_element).addClass("bg-danger");
-               $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-           }
-        });
-
-        var http_dpi_check = io.connect("http://"+document.domain+":"+location.port + "/checkdpi");
-        http_dpi_check.on('connect', function(){
-
-
-        });
-
-        http_dpi_check.on("http dpi received", function (data) {
-            var task_id = data["task_id"];
-            var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
-            var task_element = "#" + task_id;
-            var task_value_element = task_element + " .value";
-            if(!$(task_element).length){
-                   var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
-                    $(current_element + " tbody").append(task_row);
+                $(task_value_element).removeClass("bg-warning");
+                $(task_value_element).addClass("bg-danger");
+                $(task_value_element).text(data["reason"] + " : " + data["status_code"]);
 
             }
-            if(data["status"] == "SUCCESS"){
-               if(data["status_code"] == "SUCCESS"){
-
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-success");
-                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-               }
-               else{
-                   $(task_value_element).removeClass("bg-warning");
-                   $(task_value_element).addClass("bg-danger");
-                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-
-               }
-           }
-           else if(data["status"] == "PENDING"){
-               console.log(data);
-
-               $(task_value_element).addClass("bg-warning");
-               $(task_value_element).text("Pending");
-               http_dpi_check.emit("http dpi result", {
-                   location: data["location"],
-                   ISP: data["ISP"],
-                   task_id: data["task_id"],
-                   test_type: data["test_type"]});
-           }
-            else{
-
-               $(task_value_element).removeClass("bg-warning");
-               $(task_value_element).addClass("bg-danger");
-               $(task_value_element).text(data["status_code"] + " " + data["reason"]);
-           }
         });
 
         $("#callCheck").click(function(){
 
+            transaction_id = generateUUID();
+
             console.log($("#targetURL").val());
             $("#error_msg").empty();
+            $("tbody").empty();
             if($("#targetURL").val() != "") {
-                $("tbody").empty();
-                http_check.emit('check http', {url: $("#targetURL").val()});
-                dns_check.emit("check dns", {url: $("#targetURL").val()});
-                http_dpi_check.emit("check http dpi", {url: $("#targetURL").val()});
+
+                check.emit('check', { url: $("#targetURL").val(), transaction_id: transaction_id });
             }
             else{
                 $("#error_msg").append("<div class=\"alert alert-danger\" role=\"alert\">Please enter a valid website domain</div>");

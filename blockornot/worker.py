@@ -43,6 +43,8 @@ def http_task(url):
 # TODO: Local ISP DNS will resolve to wrong IP.
 @backend.task
 def dns_task(url, dns_server=None):
+    parsed_url = urlparse.urlparse(url)
+    url = parsed_url.netloc
     resolver = dns.resolver.Resolver()
     reason = ""
     status = ""

@@ -3,23 +3,23 @@ from app import create_app
 from flask import render_template
 from flask.ext.socketio import SocketIO
 from flask.ext.socketio import emit
-from worker import http_task
-from worker import dns_task
 from results import HTTPResult
 from results import DNSResult
 from results import HttpDpiTamperingResult
 import re
-import urlparse
 import logging
+import uuid
 
 
 app = create_app()
 socketio = SocketIO(app)
 
 
+# TODO: create uuid to be passed around.
 @app.route("/")
 def index():
     # TODO: WTF, simplify this
+    transaction_id = str(uuid.uuid4())
     isps = set()
     locations = {}
     testsuites = {}
@@ -31,83 +31,79 @@ def index():
         isp_testsuites[location["location"]] = location["testsuites"]
 
     testdetail = app.config["TESTSUITES"]
-    return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail)
+    return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail,
+                           transaction_id=transaction_id)
 
-# TODO: I got a feeling I can consolidate all socket io code into 1 function.
 # Now how do we tidy up this code
-@socketio.on("check http", namespace="/checkhttp")
-def check_http(json):
-    data = json
+test_results = {
+    "http" : HTTPResult,
+    "dns_TM" : DNSResult,
+    "dns_opendns" : DNSResult,
+    "dns_google" : DNSResult,
+    "http_dpi_tampering" : HttpDpiTamperingResult,
+
+}
+
+@socketio.on("check", namespace="/check")
+def call_check(data):
     url = data["url"]
     if not re.match(r"^http\://", url):
         url = "http://%s" % url
-    for entry in app.config["LOCATIONS"]:
-        if "http" in entry["testsuites"]:
-            result = HTTPResult(entry["ISP"], entry["location"], "http", param=url)
-            result.run()
+    for location in app.config["LOCATIONS"]:
+        for testsuite in location["testsuites"]:
+            # This is a special case, how to consolidate it
+            if test_results[testsuite] == DNSResult:
+                test_config = app.config["TESTSUITES"][testsuite]
+                for server in test_config["servers"]:
 
-            emit("http received", result.to_json())
+                    test_promise = test_results[testsuite](
+                        location["ISP"],
+                        location["location"],
+                        server,
+                        test_config["provider"],
+                        testsuite,
+                        data["transaction_id"],
+                        param = url
+                    )
+                    test_promise.run()
+                    emit("result_received", test_promise.to_json())
 
-# Really you should just put it to a task somewhere to push it to socket io
-@socketio.on("http result", namespace="/checkhttp")
-def http_result(json):
-    task_id = json["task_id"]
-    result = HTTPResult(json["ISP"], json["location"], json["test_type"], task_id=task_id)
-    result.run()
-    emit("http received", result.to_json())
+            else:
+                logging.warn(data)
+                test_promise = test_results[testsuite](
+                    location["ISP"],
+                    location["location"],
+                    testsuite,
+                    data["transaction_id"],
+                    param=url
+                )
+                test_promise.run()
+                emit("result_received", test_promise.to_json())
 
-@socketio.on("check dns", namespace="/checkdns")
-def check_dns(data):
-    url = data["url"]
-    if not re.match(r"^http\://", url):
-        url = "http://%s" % url
+@socketio.on("check_result", namespace="/check")
+def check_result(data):
 
-    parsed = urlparse.urlparse(url)
-    url = parsed.netloc
+    if test_results[data["test_type"]] == DNSResult:
+        test_promise = test_results[data["test_type"]](
+            data["ISP"],
+            data["location"],
+            data["server"],
+            data["provider"],
+            data["test_type"],
+            data["transaction_id"],
+            task_id=data["task_id"]
+        )
+    else:
+        test_promise = test_results[data["test_type"]](
+            data["ISP"],
+            data["location"],
+            data["test_type"],
+            data["transaction_id"],
+            task_id=data["task_id"]
+        )
 
-    for entry in app.config["LOCATIONS"]:
-        for dns_test in ["dns_TM", "dns_opendns", "dns_google"]:
-            if dns_test in entry["testsuites"]:
-                targets = app.config["TESTSUITES"][dns_test]
-                # TODO: can bite if we decide to only test certain server.
-                pos = 1
-                for server in targets["servers"]:
-
-                    logging.warn(server)
-                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], dns_test,
-                                       param=(url, server))
-                    result.run()
-
-                    emit("dns received", result.to_json())
-                    pos = pos + 1
-
-
-@socketio.on("dns result", namespace="/checkdns")
-def dns_result(data):
-    task_id = data["task_id"]
-    result = DNSResult(data["ISP"], data["location"], data["server"], data["provider"], data["test_type"], task_id=task_id)
-    result.run()
-
-    emit("dns received", result.to_json())
-
-@socketio.on("check http dpi", namespace="/checkdpi")
-def check_http_dpi_tampering(data):
-    url = data["url"]
-    if not re.match(r"^http\://", url):
-        url = "http://%s" % url
-    for entry in app.config["LOCATIONS"]:
-        if "http_dpi_tampering" in entry["testsuites"]:
-            result = HttpDpiTamperingResult(entry["ISP"], entry["location"], "http_dpi_tampering", param=url)
-            result.run()
-
-            emit("http dpi received", result.to_json())
-
-@socketio.on("http dpi result", namespace="/checkdpi")
-def http_dpi_tampering(data):
-    task_id = data["task_id"]
-    result = HttpDpiTamperingResult(data["ISP"], data["location"], data["test_type"], task_id=task_id)
-    result.run()
-    emit("http dpi received", result.to_json())
+    test_promise.run()
+    emit("result_received", test_promise.to_json())
 
 
 if __name__ == "__main__":
