@@ -3,6 +3,7 @@ from app import create_app
 from flask import render_template
 from flask.ext.socketio import SocketIO
 from flask.ext.socketio import emit
+from flask.ext.socketio import join_room
 from results import HTTPResult
 from results import DNSResult
 from results import HttpDpiTamperingResult
@@ -46,6 +47,7 @@ test_results = {
 
 @socketio.on("check", namespace="/check")
 def call_check(data):
+    join_room(data["transaction_id"])
     url = data["url"]
     if not re.match(r"^http\://", url):
         url = "http://%s" % url
@@ -66,7 +68,7 @@ def call_check(data):
                         param = url
                     )
                     test_promise.run()
-                    emit("result_received", test_promise.to_json())
+                    emit("result_received", test_promise.to_json(), room=data["transaction_id"])
 
             else:
                 logging.warn(data)
@@ -78,11 +80,11 @@ def call_check(data):
                     param=url
                 )
                 test_promise.run()
-                emit("result_received", test_promise.to_json())
+                emit("result_received", test_promise.to_json(), room=data["transaction_id"])
 
 @socketio.on("check_result", namespace="/check")
 def check_result(data):
-
+    join_room(data["transaction_id"])
     if test_results[data["test_type"]] == DNSResult:
         test_promise = test_results[data["test_type"]](
             data["ISP"],
@@ -103,7 +105,7 @@ def check_result(data):
         )
 
     test_promise.run()
-    emit("result_received", test_promise.to_json())
+    emit("result_received", test_promise.to_json(), room=data["transaction_id"])
 
 
 if __name__ == "__main__":
