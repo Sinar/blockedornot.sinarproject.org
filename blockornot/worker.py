@@ -8,6 +8,8 @@ import re
 import dns
 import dns.resolver
 import dns.exception
+import utils
+import urlparse
 
 app = create_app()
 
@@ -75,3 +77,14 @@ def dns_task(url, dns_server=None):
         reason = "Unhandled reception, bug the guys to find out"
 
     return (status, reason)
+
+@backend.task
+def http_dpi_tampering_task(url):
+    # Currently a no-op
+    # url https://github.com/Sinar/censortests/blob/master/testfilter.py
+    if not re.match(r"^http\://", url):
+        url = "http://%s" % url
+    url_components = urlparse.urlparse(url)
+    check = utils.HttpDPITamperingCheck()
+    results = check.run_all(url_components.netloc, path=url_components.path)
+    return results

@@ -69,6 +69,7 @@
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
     $(document).ready(function(){
+        // TODO: I think the code here can be consolidated too
         var http_check = io.connect("http://"+document.domain+":"+location.port + "/checkhttp");
 
         http_check.on('connect', function(){
@@ -166,6 +167,54 @@
            }
         });
 
+        var http_dpi_check = io.connect("http://"+document.domain+":"+location.port + "/checkdpi");
+        http_dpi_check.on('connect', function(){
+
+
+        });
+
+        http_dpi_check.on("http dpi received", function (data) {
+            var task_id = data["task_id"];
+            var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
+            var task_element = "#" + task_id;
+            var task_value_element = task_element + " .value";
+            if(!$(task_element).length){
+                   var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
+                    $(current_element + " tbody").append(task_row);
+
+            }
+            if(data["status"] == "SUCCESS"){
+               if(data["status_code"] == "SUCCESS"){
+
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-success");
+                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
+               }
+               else{
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-danger");
+                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
+
+               }
+           }
+           else if(data["status"] == "PENDING"){
+               console.log(data);
+
+               $(task_value_element).addClass("bg-warning");
+               $(task_value_element).text("Pending");
+               http_dpi_check.emit("http dpi result", {
+                   location: data["location"],
+                   ISP: data["ISP"],
+                   task_id: data["task_id"],
+                   test_type: data["test_type"]});
+           }
+            else{
+
+               $(task_value_element).removeClass("bg-warning");
+               $(task_value_element).addClass("bg-danger");
+               $(task_value_element).text(data["status_code"] + " " + data["reason"]);
+           }
+        });
 
         $("#callCheck").click(function(){
 
@@ -174,7 +223,8 @@
             if($("#targetURL").val() != "") {
                 $("tbody").empty();
                 http_check.emit('check http', {url: $("#targetURL").val()});
-                dns_check.emit("check dns", {url: $("#targetURL").val()})
+                dns_check.emit("check dns", {url: $("#targetURL").val()});
+                http_dpi_check.emit("check http dpi", {url: $("#targetURL").val()});
             }
             else{
                 $("#error_msg").append("<div class=\"alert alert-danger\" role=\"alert\">Please enter a valid website domain</div>");

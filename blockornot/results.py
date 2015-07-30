@@ -3,6 +3,7 @@ from app import create_app
 from celery import states
 from worker import http_task
 from worker import dns_task
+from worker import http_dpi_tampering_task
 import logging
 import re
 
@@ -103,7 +104,7 @@ class HTTPResult(BaseResult):
 
 
 class DNSResult(BaseResult):
-    def __init__(self, isp, location, server, provider, test_type, param=None, task_id=None, pos=0):
+    def __init__(self, isp, location, server, provider, test_type, param=None, task_id=None):
         super(DNSResult, self).__init__(isp, location, dns_task, test_type, param=param, task_id=task_id)
         self.output["server"] = server
         self.output["provider"] = provider
@@ -116,3 +117,19 @@ class DNSResult(BaseResult):
                 self.status = states.FAILURE
             self.output["reason"] = self.reason
             logging.warn(self.output)
+
+
+class HttpDpiTamperingResult(BaseResult):
+    def __init__(self, isp, location, test_type, param=None, task_id=None):
+        super(HttpDpiTamperingResult, self).__init__(isp, location, http_dpi_tampering_task, test_type,
+                                                     param=param, task_id=task_id)
+
+    def prepare_result(self):
+        if self.status == states.SUCCESS:
+            return_code, self.reason = self.result
+            if not return_code:
+                self.status = states.FAILURE
+                self.output["status_code"] = states.FAILURE
+            else:
+                self.output["status_code"] = states.SUCCESS
+            self.output["reason"] = self.reason

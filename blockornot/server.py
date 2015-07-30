@@ -7,6 +7,7 @@ from worker import http_task
 from worker import dns_task
 from results import HTTPResult
 from results import DNSResult
+from results import HttpDpiTamperingResult
 import re
 import urlparse
 import logging
@@ -32,7 +33,7 @@ def index():
     testdetail = app.config["TESTSUITES"]
     return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail)
 
-# TODO: See if we can append to table instead of manually create table row.Forcing a html element id into backend is crazy stupid
+# TODO: I got a feeling I can consolidate all socket io code into 1 function.
 # Now how do we tidy up this code
 @socketio.on("check http", namespace="/checkhttp")
 def check_http(json):
@@ -45,7 +46,7 @@ def check_http(json):
             result = HTTPResult(entry["ISP"], entry["location"], "http", param=url)
             result.run()
 
-        emit("http received", result.to_json())
+            emit("http received", result.to_json())
 
 # Really you should just put it to a task somewhere to push it to socket io
 @socketio.on("http result", namespace="/checkhttp")
@@ -88,6 +89,26 @@ def dns_result(data):
     result.run()
 
     emit("dns received", result.to_json())
+
+@socketio.on("check http dpi", namespace="/checkdpi")
+def check_http_dpi_tampering(data):
+    url = data["url"]
+    if not re.match(r"^http\://", url):
+        url = "http://%s" % url
+    for entry in app.config["LOCATIONS"]:
+        if "http_dpi_tampering" in entry["testsuites"]:
+            result = HttpDpiTamperingResult(entry["ISP"], entry["location"], "http_dpi_tampering", param=url)
+            result.run()
+
+            emit("http dpi received", result.to_json())
+
+@socketio.on("http dpi result", namespace="/checkdpi")
+def http_dpi_tampering(data):
+    task_id = data["task_id"]
+    result = HttpDpiTamperingResult(data["ISP"], data["location"], data["test_type"], task_id=task_id)
+    result.run()
+    emit("http dpi received", result.to_json())
+
 
 if __name__ == "__main__":
     app.debug=True
