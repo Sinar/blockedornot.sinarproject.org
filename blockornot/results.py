@@ -18,7 +18,7 @@ class ResultException(Exception):
     pass
 
 class BaseResult(object):
-    def __init__(self, isp, location, task_func, test_id, param=None, task_id=None):
+    def __init__(self, isp, location, task_func, test_type, param=None, task_id=None):
         if not (param or task_id):
             raise ResultException("Either supply Parameter or Task ID ")
         self.config = app.config
@@ -29,10 +29,10 @@ class BaseResult(object):
         self.task = None
         self.status = None
         self.output = {}
-        # this is for used by frontend to send data to.
-        # TODO: Refactor this, tight coupling suck
-        # TODO: Putting frontend stuff to here is crazy stupid
-        self.test_id = test_id
+
+        self.test_type = test_type
+        # default description is the friendly description on config
+        self.description = self.config["TESTSUITES"][test_type]["description"]
 
         # each worker will listen to 1 queue
         # each queue is named after location
@@ -41,7 +41,8 @@ class BaseResult(object):
         self.output["ISP"] = isp
         queue_name = "%s %s" % (location, isp)
         self.queue = queue_name.lower().replace(" ","_")
-        self.output["test_id"] = self.test_id
+        self.output["test_type"] = self.test_type
+
         self.reason = ""
 
     def run(self):
@@ -68,6 +69,7 @@ class BaseResult(object):
         raise NotImplementedError()
 
     def to_json(self):
+        self.output["description"] = self.description
         logging.warn(self.result)
         self.prepare_result()
         if self.status == states.PENDING:
@@ -80,10 +82,11 @@ class BaseResult(object):
 
 
 class HTTPResult(BaseResult):
-    def __init__(self, isp, location, test_id, param=None, task_id=None):
-        super(HTTPResult, self).__init__(isp, location, http_task, test_id, param=param, task_id=task_id)
+    def __init__(self, isp, location, test_type, param=None, task_id=None):
+        super(HTTPResult, self).__init__(isp, location, http_task, test_type, param=param, task_id=task_id)
         self.mcmc_pattern = re.compile(MCMC_BLOCK_PAGE_PATTERN)
         self.mcmc_header = re.compile(MCMC_BLOCK_PAGE_HEADER)
+        self.description = "Test fetching a website on %s network" % isp
 
     def prepare_result(self):
         if self.status == states.SUCCESS:
@@ -100,12 +103,11 @@ class HTTPResult(BaseResult):
 
 
 class DNSResult(BaseResult):
-    def __init__(self, isp, location, server, provider, test_id, param=None, task_id=None, pos=0):
-        super(DNSResult, self).__init__(isp, location, dns_task, test_id, param=param, task_id=task_id)
+    def __init__(self, isp, location, server, provider, test_type, param=None, task_id=None, pos=0):
+        super(DNSResult, self).__init__(isp, location, dns_task, test_type, param=param, task_id=task_id)
         self.output["server"] = server
         self.output["provider"] = provider
-        # Position of server in TESTSUITES config. Used in html table for javascript.
-        self.output["pos"] = pos
+        self.description = "DNS Testing with DNS Server %s on %s network" % (server, provider)
 
     def prepare_result(self):
         if self.status == states.SUCCESS:

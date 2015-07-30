@@ -51,22 +51,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for testsuite in testsuites[isp][location] %}
-
-                                {% if testsuite == "http" %}
-                                    <tr>
-                                        <td>{{testdetail[testsuite]["description"]}}</td>
-                                        <td class="{{testsuite}}"></td>
-                                    </tr>
-                                {% elif testdetail[testsuite]["servers"] %}
-                                    {% for server in testdetail[testsuite]["servers"] %}
-                                    <tr>
-                                        <td>{{testdetail[testsuite]["description"]}}. testing server {{server}}</td>
-                                        <td class="{{testsuite}}_{{loop.index}}"></td>
-                                    </tr>
-                                    {% endfor %}
-                                {% endif %}
-                            {% endfor %}
                         </tbody>
                     </table>
 
@@ -94,32 +78,40 @@
         http_check.on('http received', function(data){
             var task_id = data["task_id"];
             //what the fuck is this shit
-            current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " ." + data["test_id"];
+            var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
+            var task_element = "#" + task_id;
+            var task_value_element = task_element + " .value";
+            if(!$(task_element).length){
+                   var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
+                    $(current_element + " tbody").append(task_row);
+
+            }
            if(data["status"] == "PENDING"){
                console.log(data["task_id"]);
 
-               $(current_element).addClass("bg-warning");
-               $(current_element).text("Pending");
-               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], test_id: data["test_id"], location: data["location"] })
+
+               $(task_value_element).addClass("bg-warning");
+               $(task_value_element).text("Pending");
+               http_check.emit("http result",{ "task_id": data["task_id"], ISP: data["ISP"], test_type: data["test_type"], location: data["location"] })
            }
             else if(data["status"] == "SUCCESS"){
                if(data["status_code"] != 200){
                    console.log(data);
-                   $(current_element).removeClass("bg-warning");
-                   $(current_element).addClass("bg-danger");
-                   $(current_element).text("Error status code: "+data["status_code"] + " " + data["reason"]);
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-danger");
+                   $(task_value_element).text("Error status code: "+data["status_code"] + " " + data["reason"]);
                }
                else{
                    console.log(data);
-                   $(current_element).removeClass("bg-warning");
-                   $(current_element).addClass("bg-success");
-                   $(current_element).text("Success! status code: "+data["status_code"] + " " + data["reason"]);
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-success");
+                   $(task_value_element).text("Success! status code: "+data["status_code"] + " " + data["reason"]);
                }
            }
             else{
-               $(current_element).removeClass("bg-warning");
-               $(current_element).addClass("bg-danger");
-               $(current_element).text("Error status code: "+data["status_code"]);
+               $(task_value_element).removeClass("bg-warning");
+               $(task_value_element).addClass("bg-danger");
+               $(task_value_element).text("Error status code: "+data["status_code"]);
            }
         });
         var dns_check = io.connect("http://"+document.domain+":"+location.port + "/checkdns");
@@ -131,39 +123,46 @@
             console.log("DNS CHECK");
             console.log(data);
             var task_id = data["task_id"];
-            current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " ." + data["test_id"];
+            var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
+            var task_element = "#" + task_id;
+            var task_value_element = task_element + " .value";
+            if(!$(task_element).length){
+                   var task_row = "<tr id=\""+ task_id +"\"><td>" + data["description"] + "</td><td class=\"value\"></td>";
+                    $(current_element + " tbody").append(task_row);
 
+               }
            if(data["status"] == "SUCCESS"){
                if(data["status_code"] == "OK"){
 
-                   $(current_element).removeClass("bg-warning");
-                   $(current_element).addClass("bg-success");
-                   $(current_element).text(data["status_code"] + " " + data["reason"]);
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-success");
+                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
                }
                else{
-                   $(current_element).removeClass("bg-warning");
-                   $(current_element).addClass("bg-danger");
-                   $(current_element).text(data["status_code"] + " " + data["reason"]);
+                   $(task_value_element).removeClass("bg-warning");
+                   $(task_value_element).addClass("bg-danger");
+                   $(task_value_element).text(data["status_code"] + " " + data["reason"]);
 
                }
            }
            else if(data["status"] == "PENDING"){
                console.log(data);
-               $(current_element).addClass("bg-warning");
-               $(current_element).text("Pending");
+
+               $(task_value_element).addClass("bg-warning");
+               $(task_value_element).text("Pending");
                dns_check.emit("dns result", {
                    location: data["location"],
                    ISP: data["ISP"],
                    task_id: data["task_id"],
                    provider: data["provider"],
                    server: data["server"],
-                   test_id: data["test_id"]});
+                   test_type: data["test_type"]});
            }
             else{
 
-               $(current_element).removeClass("bg-warning");
-               $(current_element).addClass("bg-danger");
-               $(current_element).text(data["status_code"] + " " + data["reason"]);
+               $(task_value_element).removeClass("bg-warning");
+               $(task_value_element).addClass("bg-danger");
+               $(task_value_element).text(data["status_code"] + " " + data["reason"]);
            }
         });
 
@@ -173,7 +172,7 @@
             console.log($("#targetURL").val());
             $("#error_msg").empty();
             if($("#targetURL").val() != "") {
-
+                $("tbody").empty();
                 http_check.emit('check http', {url: $("#targetURL").val()});
                 dns_check.emit("check dns", {url: $("#targetURL").val()})
             }

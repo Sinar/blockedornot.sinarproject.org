@@ -51,7 +51,7 @@ def check_http(json):
 @socketio.on("http result", namespace="/checkhttp")
 def http_result(json):
     task_id = json["task_id"]
-    result = HTTPResult(json["ISP"], json["location"], json["test_id"], task_id=task_id)
+    result = HTTPResult(json["ISP"], json["location"], json["test_type"], task_id=task_id)
     result.run()
     emit("http received", result.to_json())
 
@@ -71,9 +71,9 @@ def check_dns(data):
                 # TODO: can bite if we decide to only test certain server.
                 pos = 1
                 for server in targets["servers"]:
-                    test_id = "%s_%s" % (dns_test, pos)
+
                     logging.warn(server)
-                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], test_id,
+                    result = DNSResult(entry["ISP"], entry["location"], server, targets["provider"], dns_test,
                                        param=(url, server))
                     result.run()
 
@@ -84,7 +84,7 @@ def check_dns(data):
 @socketio.on("dns result", namespace="/checkdns")
 def dns_result(data):
     task_id = data["task_id"]
-    result = DNSResult(data["ISP"], data["location"], data["server"], data["provider"], data["test_id"], task_id=task_id)
+    result = DNSResult(data["ISP"], data["location"], data["server"], data["provider"], data["test_type"], task_id=task_id)
     result.run()
 
     emit("dns received", result.to_json())
