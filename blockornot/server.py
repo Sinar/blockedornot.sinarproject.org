@@ -11,6 +11,7 @@ from results import DNSResult
 from results import HttpDpiTamperingResult
 from models import db
 from models import ResultData
+from utils import store_to_db
 import re
 import logging
 import uuid
@@ -82,18 +83,8 @@ def call_check(data):
                     )
                     test_promise.run()
                     emit("result_received", test_promise.to_json(), room=data["transaction_id"])
-                    db_data = ResultData.create(
-                        transaction_id=data["transaction_id"],
-                        task_id=test_promise.task_id,
-                        task_type = testsuite,
-                        location=location["location"],
-                        country=location["country"],
-                        url=url,
-                        task_status=test_promise.status,
-                        raw_data=test_promise.to_json(),
-                        extra_attr={ "provider": test_config["provider"], "server": server}
-                    )
 
+                    store_to_db(test_promise.to_json(), extra_attr={ "provider": test_config["provider"], "server": server})
 
             else:
                 logging.warn(data)
@@ -107,7 +98,7 @@ def call_check(data):
                 )
                 test_promise.run()
                 emit("result_received", test_promise.to_json(), room=data["transaction_id"])
-
+                store_to_db(test_promise.to_json())
 
 
 @socketio.on("check_result", namespace="/check")
@@ -136,6 +127,8 @@ def check_result(data):
 
     test_promise.run()
     emit("result_received", test_promise.to_json(), room=data["transaction_id"])
+    # Extra attribute is only set one.
+    store_to_db(test_promise.to_json())
 
 
 if __name__ == "__main__":

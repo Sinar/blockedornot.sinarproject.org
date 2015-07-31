@@ -108,13 +108,11 @@ def socket_getips(host, port=80):
     return result
 
 # I do this so that I can autocomplete the code.
-def store_to_db(data, task_type, task_status, url=None, task_id=None, status=None, extra_attr=None):
+def store_to_db(data, extra_attr=None):
     create = False
     try:
-        if task_id:
-            result = ResultData.get(task_id=task_id)
-        else:
-            create = True
+        result = ResultData.get(task_id=data["task_id"])
+
 
     except ResultData.DoesNotExist:
         create = True
@@ -122,20 +120,19 @@ def store_to_db(data, task_type, task_status, url=None, task_id=None, status=Non
     if create:
         result = ResultData()
         result.transaction_id = data["transaction_id"]
-        result.task_id = task_id
-        result.task_type = task_type
+        result.task_id = data["task_id"]
+        result.task_type = data["test_type"]
         result.location = data["location"]
         result.country = data["country"]
-        result.url = url
+        result.url = data["url"]
 
         if extra_attr:
-            result.status = extra_attr
+            result.extra_attr = extra_attr
 
-    result.task_status = task_status
+    result.task_status = data["status"]
 
-    if status:
-        # Difference between status and task_status. task_status is for celery task.
-        result.status = status
+    # Difference between status and task_status. task_status is for celery task.
+    result.status = str(data["status_code"])
 
     result.raw_data = data
     result.save()

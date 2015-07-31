@@ -57,6 +57,8 @@ class BaseResult(object):
             self.output["url"] = self.param
 
         self.reason = ""
+        self.status_code = ""
+        self.output["status_code"] = self.status_code
 
     def run(self):
         if not self.task_id:
