@@ -5,7 +5,7 @@ import datetime
 
 app = create_app()
 
-db = PostgresqlExtDatabase("blockedornot", user=app.config["DBUSER"], password=app.config["DBPASSWD"])
+db = PostgresqlExtDatabase(app.config["DBNAME"], user=app.config["DBUSER"], password=app.config["DBPASSWD"])
 
 
 class ResultData(Model):
