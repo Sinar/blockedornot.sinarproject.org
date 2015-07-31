@@ -6,6 +6,7 @@ from worker import dns_task
 from worker import http_dpi_tampering_task
 import logging
 import re
+import datetime
 
 app = create_app()
 
@@ -14,12 +15,13 @@ MCMC_BLOCK_PAGE_PATTERN = r"This website is not available in Malaysia as it viol
 MCMC_BLOCK_PAGE_HEADER = r"Makluman/Notification"
 
 # TODO: Reduce the redirection. What the fuck man...
+# TODO: Actually we can make a celery task to run this and have this to run the actually function to run the test
 # This is the result object
 class ResultException(Exception):
     pass
 
 class BaseResult(object):
-    def __init__(self, isp, location, task_func, test_type, transaction_id, param=None, task_id=None):
+    def __init__(self, isp, location, country, task_func, test_type, transaction_id, param=None, task_id=None):
         if not (param or task_id):
             raise ResultException("Either supply Parameter or Task ID ")
         self.config = app.config
@@ -29,7 +31,9 @@ class BaseResult(object):
         self.task_func = task_func
         self.task = None
         self.status = None
+        self.country = country
         self.output = {}
+        self.updated_at = datetime.datetime.now()
 
         self.test_type = test_type
         # default description is the friendly description on config
@@ -44,6 +48,13 @@ class BaseResult(object):
         self.queue = queue_name.lower().replace(" ","_")
         self.output["test_type"] = self.test_type
         self.output["transaction_id"] = transaction_id
+        self.output["country"] = country
+        # What if task_func need 3 parameter. What if the parameter is jumble up as we add more worker.
+        # Yeah, ooops.
+        if type(self.param) == tuple or type(self.param) == list:
+            self.output["url"] = self.param[0]
+        else:
+            self.output["url"] = self.param
 
         self.reason = ""
 
@@ -77,15 +88,23 @@ class BaseResult(object):
         if self.status == states.PENDING:
             self.output["status"] = states.PENDING
         elif self.status == states.SUCCESS:
+            self.updated_at = datetime.datetime.now()
+            # Then the problem is we need to convert it back?
+            # Also I am assuming that from task completed to here is very short
+            self.output["updated_at"] = self.updated_at.isoformat()
             self.output["status"] = states.SUCCESS
         else:
+            self.updated_at = datetime.datetime.now()
+            # Then the problem is we need to convert it back?
+            # Also I am assuming that from task completed to here is very short
+            self.output["updated_at"] = self.updated_at.isoformat()
             self.output["status"] = states.FAILURE
         return self.output
 
 
 class HTTPResult(BaseResult):
-    def __init__(self, isp, location, test_type, transaction_id,  param=None, task_id=None):
-        super(HTTPResult, self).__init__(isp, location, http_task, test_type, transaction_id, param=param, task_id=task_id)
+    def __init__(self, isp, location, country, test_type, transaction_id,  param=None, task_id=None):
+        super(HTTPResult, self).__init__(isp, location, country, http_task, test_type, transaction_id, param=param, task_id=task_id)
         self.mcmc_pattern = re.compile(MCMC_BLOCK_PAGE_PATTERN)
         self.mcmc_header = re.compile(MCMC_BLOCK_PAGE_HEADER)
         self.description = "Test fetching a website on %s network" % isp
@@ -107,8 +126,8 @@ class HTTPResult(BaseResult):
 
 
 class DNSResult(BaseResult):
-    def __init__(self, isp, location, server, provider, test_type, transaction_id, param=None, task_id=None):
-        super(DNSResult, self).__init__(isp, location, dns_task, test_type, transaction_id, param=param, task_id=task_id)
+    def __init__(self, isp, location, country, server, provider, test_type, transaction_id, param=None, task_id=None):
+        super(DNSResult, self).__init__(isp, location, country, dns_task, test_type, transaction_id, param=param, task_id=task_id)
         self.output["server"] = server
         self.output["provider"] = provider
         self.description = "DNS Testing with DNS Server %s on %s network" % (server, provider)
@@ -123,8 +142,8 @@ class DNSResult(BaseResult):
 
 
 class HttpDpiTamperingResult(BaseResult):
-    def __init__(self, isp, location, test_type, transaction_id, param=None, task_id=None):
-        super(HttpDpiTamperingResult, self).__init__(isp, location, http_dpi_tampering_task, test_type,
+    def __init__(self, isp, location, country, test_type, transaction_id, param=None, task_id=None):
+        super(HttpDpiTamperingResult, self).__init__(isp, location, country, http_dpi_tampering_task, test_type,
                                                      transaction_id, param=param, task_id=task_id)
 
     def prepare_result(self):

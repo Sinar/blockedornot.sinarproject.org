@@ -19,3 +19,7 @@ requests==2.7.0
 Werkzeug==0.10.4
 wheel==0.24.0
 dnspython==1.12.0
+peewee==2.6.3
+psycopg2==2.6.1
+arnold==0.4.0
+pycountry==1.13

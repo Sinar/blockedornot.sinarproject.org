@@ -5,6 +5,7 @@ import argparse
 from socket import socket, IPPROTO_TCP, TCP_NODELAY, timeout, gethostbyname, \
     getprotobyname, AF_INET, SOL_IP, SOCK_RAW, SOCK_DGRAM, IP_TTL, gethostbyaddr, error, getaddrinfo, SOL_TCP
 
+from models import ResultData
 
 
 
@@ -105,3 +106,36 @@ def socket_getips(host, port=80):
             # We take IPv4 addresses only. IPv6 will be ignored for now
             result.append(sockaddr[0])
     return result
+
+# I do this so that I can autocomplete the code.
+def store_to_db(data, task_type, task_status, url=None, task_id=None, status=None, extra_attr=None):
+    create = False
+    try:
+        if task_id:
+            result = ResultData.get(task_id=task_id)
+        else:
+            create = True
+
+    except ResultData.DoesNotExist:
+        create = True
+
+    if create:
+        result = ResultData()
+        result.transaction_id = data["transaction_id"]
+        result.task_id = task_id
+        result.task_type = task_type
+        result.location = data["location"]
+        result.country = data["country"]
+        result.url = url
+
+        if extra_attr:
+            result.status = extra_attr
+
+    result.task_status = task_status
+
+    if status:
+        # Difference between status and task_status. task_status is for celery task.
+        result.status = status
+
+    result.raw_data = data
+    result.save()

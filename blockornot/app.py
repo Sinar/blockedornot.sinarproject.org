@@ -13,4 +13,6 @@ def create_app():
     app.config["DNS_TARGETS"] = config["DNS_TARGETS"]
     app.config["TESTSUITES"] = config["TESTSUITES"]
     app.config["PORT"] = config["PORT"]
+    app.config["DBUSER"] = config["DBUSER"]
+    app.config["DBPASSWD"] = config["DBPASSWD"]
     return app

@@ -1,4 +1,6 @@
 __author__ = 'sweemeng'
+from gevent import monkey; monkey.patch_all()
+# Because socketio module uses gevent
 from app import create_app
 from flask import render_template
 from flask.ext.socketio import SocketIO
@@ -7,6 +9,8 @@ from flask.ext.socketio import join_room
 from results import HTTPResult
 from results import DNSResult
 from results import HttpDpiTamperingResult
+from models import db
+from models import ResultData
 import re
 import logging
 import uuid
@@ -14,6 +18,14 @@ import uuid
 
 app = create_app()
 socketio = SocketIO(app)
+
+@app.before_request
+def _db_connect():
+    db.connect()
+
+@app.before_request
+def _db_teardown():
+    db.close()
 
 
 # TODO: create uuid to be passed around.
@@ -61,26 +73,42 @@ def call_check(data):
                     test_promise = test_results[testsuite](
                         location["ISP"],
                         location["location"],
+                        location["country"],
                         server,
                         test_config["provider"],
                         testsuite,
                         data["transaction_id"],
-                        param = url
+                        param = (url, server)
                     )
                     test_promise.run()
                     emit("result_received", test_promise.to_json(), room=data["transaction_id"])
+                    db_data = ResultData.create(
+                        transaction_id=data["transaction_id"],
+                        task_id=test_promise.task_id,
+                        task_type = testsuite,
+                        location=location["location"],
+                        country=location["country"],
+                        url=url,
+                        task_status=test_promise.status,
+                        raw_data=test_promise.to_json(),
+                        extra_attr={ "provider": test_config["provider"], "server": server}
+                    )
+
 
             else:
                 logging.warn(data)
                 test_promise = test_results[testsuite](
                     location["ISP"],
                     location["location"],
+                    location["country"],
                     testsuite,
                     data["transaction_id"],
                     param=url
                 )
                 test_promise.run()
                 emit("result_received", test_promise.to_json(), room=data["transaction_id"])
+
+
 
 @socketio.on("check_result", namespace="/check")
 def check_result(data):
@@ -89,6 +117,7 @@ def check_result(data):
         test_promise = test_results[data["test_type"]](
             data["ISP"],
             data["location"],
+            data["country"],
             data["server"],
             data["provider"],
             data["test_type"],
@@ -99,6 +128,7 @@ def check_result(data):
         test_promise = test_results[data["test_type"]](
             data["ISP"],
             data["location"],
+            data["country"],
             data["test_type"],
             data["transaction_id"],
             task_id=data["task_id"]
