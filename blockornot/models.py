@@ -28,7 +28,7 @@ class ResultData(Model):
     raw_data = JSONField()
     # Not part of json
     # This is only created but never change
-    create_at = DateTimeField(default=datetime.datetime.now)
+    created_at = DateTimeField(default=datetime.datetime.now)
     # This is create then updated
     updated_at = DateTimeField(default=datetime.datetime.now)
 
