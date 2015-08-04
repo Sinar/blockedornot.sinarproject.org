@@ -89,6 +89,16 @@ def fetch_html(transaction_id):
     return render_template("index.html", output=output, share=True, url=app.config["URL"], current_url=current_url,
                            target_url= entry_url)
 
+@app.route("/dump")
+def dump_json():
+    output = []
+    result_data = ResultData.select()
+    for entry in result_data:
+        output.append(entry.to_json())
+
+    return jsonify({ "results": output, "total": len(output) })
+
+
 
 @socketio.on("check", namespace="/check")
 def call_check(data):
