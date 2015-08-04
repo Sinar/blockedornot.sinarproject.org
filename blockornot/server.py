@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 __author__ = 'sweemeng'
 from gevent import monkey; monkey.patch_all()
 # Because socketio module uses gevent
