@@ -8,6 +8,7 @@
 
 </head>
 <body>
+    <div class="domain" data-domain-name="{{URL}}"></div>
     <div class="navbar navbar-inverse navbar-fixed-top">
         <div class="container-fluid">
             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
@@ -175,7 +176,7 @@
         $("#callCheck").click(function(){
 
             transaction_id = generateUUID();
-            var link_url="http://127.0.0.1:5052/" + transaction_id + ".html";
+            var link_url="http://"+document.domain+"/" + transaction_id + ".html";
             $("#shareLink").val(link_url);
             $("#clickShare").attr("data-clipboard-text", link_url);
             console.log($("#clickShare").data("clipboard-text"));
