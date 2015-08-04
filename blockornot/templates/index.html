@@ -42,7 +42,7 @@
             <div class="input-group">
                 <input type="text" class="form-control" id="shareLink" {% if current_url %}value="{{current_url}}"{% endif %} readonly="true">
                 <div class="input-group-btn">
-                    <button type="button" class="btn btn-default" id="clickShare" data-clipboard-text="{{current_url}}">Copy</button>
+                    <button type="button" class="btn btn-default" id="clickShare" data-clipboard-text="{{current_url}}">Copy link to share</button>
                 </div>
             </div>
         </form>
@@ -138,7 +138,6 @@
             console.log("Loaded");
             cpm_client.on("aftercopy", function(event){
                 console.log(event.data);
-
             });
         });
 
