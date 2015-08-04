@@ -77,21 +77,24 @@ class HttpDPITamperingCheck:
         return FAIL
 
     def run_all(self, host, path="/"):
-        ips = socket_getips(host)
-        results = []
-        if len(ips) > 0:
+        try:
+            ips = socket_getips(host)
+            results = []
+            if len(ips) > 0:
 
-            for i in ips:
-                if self.run_single(i, path) == FAIL:
-                    results.append(i)
-        else:
-            return (FAIL, "Cannot find ip for this address")
-        if results:
-            ips_str = ", ".join(ips)
-            message = "Request to the following ip %s, have been tampered with" % ips_str
-            return (FAIL, message)
-        else:
-            return (SUCCESS, "No tampering of http request found.")
+                for i in ips:
+                    if self.run_single(i, path) == FAIL:
+                        results.append(i)
+            else:
+                return (FAIL, "Cannot find ip for this address")
+            if results:
+                ips_str = ", ".join(ips)
+                message = "Request to the following ip %s, have been tampered with" % ips_str
+                return (FAIL, message)
+            else:
+                return (SUCCESS, "No tampering of http request found.")
+        except error as e:
+            return (FAIL, e.strerror)
 
 
 def socket_getips(host, port=80):

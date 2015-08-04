@@ -41,7 +41,18 @@ def initialize_entry(data, extra_attr={}):
 def call_http_task(data):
     print data
     print data
-    r = requests.get(data["url"])
+    try:
+        r = requests.get(data["url"])
+    except requests.ConnectionError as e:
+        status_code, message = e.message
+        return {
+            "task_id": data["task_id"],
+            "status_code": status_code,
+            "content": str(message),
+            "reason": str(message),
+            "status": states.FAILURE
+        }
+
     status_code = r.status_code
     reason = r.reason
     if r.status_code == 200:
