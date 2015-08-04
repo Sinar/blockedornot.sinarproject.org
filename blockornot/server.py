@@ -10,11 +10,11 @@ from flask.ext.socketio import emit
 from flask.ext.socketio import join_room
 from models import db
 from models import ResultData
-from blockornot.worker import call_http_task
-from blockornot.worker import call_dns_task
-from blockornot.worker import call_http_dpi_tampering_task
-from blockornot.worker import update_entry
-from blockornot.worker import post_update
+from worker import call_http_task
+from worker import call_dns_task
+from worker import call_http_dpi_tampering_task
+from worker import update_entry
+from worker import post_update
 from celery import chain
 import re
 import logging
