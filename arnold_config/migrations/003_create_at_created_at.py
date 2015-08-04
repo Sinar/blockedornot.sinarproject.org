@@ -1,9 +1,11 @@
 __author__ = 'sweemeng'
 from .. import migrator
 from playhouse.migrate import migrate
+import logging
 
 
 def up():
+
     migrate(
         migrator.rename_column("resultdata", "create_at", "created_at")
 

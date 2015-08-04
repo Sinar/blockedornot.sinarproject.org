@@ -3,15 +3,19 @@ from gevent import monkey; monkey.patch_all()
 # Because socketio module uses gevent
 from app import create_app
 from flask import render_template
+from flask import request
+from flask import jsonify
 from flask.ext.socketio import SocketIO
 from flask.ext.socketio import emit
 from flask.ext.socketio import join_room
-from results import HTTPResult
-from results import DNSResult
-from results import HttpDpiTamperingResult
 from models import db
 from models import ResultData
-from utils import store_to_db
+from blockornot.worker import call_http_task
+from blockornot.worker import call_dns_task
+from blockornot.worker import call_http_dpi_tampering_task
+from blockornot.worker import update_entry
+from blockornot.worker import post_update
+from celery import chain
 import re
 import logging
 import uuid
@@ -28,8 +32,12 @@ def _db_connect():
 def _db_teardown():
     db.close()
 
-
-# TODO: create uuid to be passed around.
+"""
+JSON Trigger
+1) Call test
+2) Get transaction id
+3) redirect to page
+"""
 @app.route("/")
 def index():
     # TODO: WTF, simplify this
@@ -48,88 +56,98 @@ def index():
     return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail,
                            transaction_id=transaction_id)
 
-# Now how do we tidy up this code
-test_results = {
-    "http" : HTTPResult,
-    "dns_TM" : DNSResult,
-    "dns_opendns" : DNSResult,
-    "dns_google" : DNSResult,
-    "http_dpi_tampering" : HttpDpiTamperingResult,
+@app.route("/postback", methods=["POST"])
+def postback():
+    data = request.get_json(force=True)
+    logging.warn(data)
+    socketio.emit("result_received", data, room=data["transaction_id"], namespace="/check")
+    return "OK"
 
-}
+@app.route("/<transaction_id>.json")
+def fetch_json(transaction_id):
+    result_data = ResultData.select().where(ResultData.transaction_id==transaction_id)
+    output = []
+    for entry in result_data:
+        output.append(entry.to_json())
+
+    return jsonify({ "results": output, "total": len(output) })
+
+@app.route("/<transaction_id>.html")
+def fetch_html(transaction_id):
+    result_data = ResultData.select().where(ResultData.transaction_id==transaction_id)
+    output = {}
+    entry_url = ""
+    for entry in result_data:
+        # it is the same url, and I'm lazy
+        entry_url = entry.url
+        isp = output.setdefault(entry.isp, {})
+        location = isp.setdefault(entry.location, [])
+        location.append({ "description": entry.description, "status": entry.status, "reason": entry.reason,
+                          "task_status": entry.task_status })
+    current_url = "%s/%s.html" % (app.config["URL"], transaction_id)
+    return render_template("index.html", output=output, share=True, url=app.config["URL"], current_url=current_url,
+                           target_url= entry_url)
+
 
 @socketio.on("check", namespace="/check")
 def call_check(data):
     join_room(data["transaction_id"])
     url = data["url"]
     if not re.match(r"^http\://", url):
-        url = "http://%s" % url
+        data["url"] = "http://%s" % url
     for location in app.config["LOCATIONS"]:
         for testsuite in location["testsuites"]:
-            # This is a special case, how to consolidate it
-            if test_results[testsuite] == DNSResult:
-                test_config = app.config["TESTSUITES"][testsuite]
-                for server in test_config["servers"]:
 
-                    test_promise = test_results[testsuite](
-                        location["ISP"],
-                        location["location"],
-                        location["country"],
-                        server,
-                        test_config["provider"],
-                        testsuite,
-                        data["transaction_id"],
-                        param = (url, server)
-                    )
-                    test_promise.run()
-                    emit("result_received", test_promise.to_json(), room=data["transaction_id"])
+            input_data = {
+                "transaction_id": data["transaction_id"],
 
-                    store_to_db(test_promise.to_json(), extra_attr={ "provider": test_config["provider"], "server": server})
+                "location": location["location"],
+                "country": location["country"],
+                "ISP": location["ISP"],
+                "url": data["url"],
+            }
+            location_queue = "%s_%s" % (location["location"].lower().replace(" ", "_"), location["ISP"].lower().replace(" ", "_"))
+            logging.warn(location_queue)
+
+            input_data["test_type"] = testsuite
+            if testsuite in ("dns_google", "dns_TM", "dns_opendns"):
+                for server in app.config["TESTSUITES"][testsuite]["servers"]:
+                    input_data["task_id"] = str(uuid.uuid4())
+
+                    extra_attr = {
+                        "provider": app.config["TESTSUITES"][testsuite]["provider"],
+                        "server": server
+                    }
+                    input_data["extra_attr"] = extra_attr
+                    logging.warn("DNS Check")
+                    description = "%s server: %s " % (app.config["TESTSUITES"][testsuite]["description"], server)
+                    input_data["description"] = description
+                    result_data = ResultData.from_json(input_data, extra_attr=extra_attr)
+                    task = chain(
+                            call_dns_task.s(result_data.to_json()).set(queue=location_queue),
+                            update_entry.s().set(queue="basecamp"),
+                            post_update.s().set(queue="basecamp")
+                        ).apply_async()
 
             else:
-                logging.warn(data)
-                test_promise = test_results[testsuite](
-                    location["ISP"],
-                    location["location"],
-                    location["country"],
-                    testsuite,
-                    data["transaction_id"],
-                    param=url
-                )
-                test_promise.run()
-                emit("result_received", test_promise.to_json(), room=data["transaction_id"])
-                store_to_db(test_promise.to_json())
+                input_data["task_id"] = str(uuid.uuid4())
 
+                input_data["description"] = app.config["TESTSUITES"][testsuite]["description"]
+                result_data = ResultData.from_json(input_data)
 
-@socketio.on("check_result", namespace="/check")
-def check_result(data):
-    join_room(data["transaction_id"])
-    if test_results[data["test_type"]] == DNSResult:
-        test_promise = test_results[data["test_type"]](
-            data["ISP"],
-            data["location"],
-            data["country"],
-            data["server"],
-            data["provider"],
-            data["test_type"],
-            data["transaction_id"],
-            task_id=data["task_id"]
-        )
-    else:
-        test_promise = test_results[data["test_type"]](
-            data["ISP"],
-            data["location"],
-            data["country"],
-            data["test_type"],
-            data["transaction_id"],
-            task_id=data["task_id"]
-        )
-
-    test_promise.run()
-    emit("result_received", test_promise.to_json(), room=data["transaction_id"])
-    # Extra attribute is only set one.
-    store_to_db(test_promise.to_json())
-
+                if testsuite == "http":
+                    task = chain(
+                        call_http_task.s(result_data.to_json()).set(queue=location_queue),
+                        update_entry.s().set(queue="basecamp"),
+                        post_update.s().set(queue="basecamp")
+                    ).apply_async()
+                elif testsuite == "http_dpi_tampering":
+                    task = chain(
+                        call_http_dpi_tampering_task.s(result_data.to_json()).set(queue=location_queue),
+                        update_entry.s().set(queue="basecamp"),
+                        post_update.s().set(queue="basecamp")
+                    ).apply_async()
+            emit("result_received", result_data.to_json(), room=result_data.transaction_id)
 
 if __name__ == "__main__":
     app.debug=True

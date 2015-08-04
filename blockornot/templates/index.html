@@ -27,7 +27,8 @@
                     <div id="error_msg"></div>
                     <form class="form-inline" id="queryForm">
                         <div class="form-group">
-                            <input type="text" class="form-control" id="targetURL" placeholder="www.sarawakreport.org"/>
+                            <input type="text" class="form-control" id="targetURL" placeholder="www.sarawakreport.org"
+                                    {% if target_url %}value="{{target_url}}"{% endif %}/>
                         </div>
                         <button type="button" class="btn btn-default" id="callCheck">Check</button>
                     </form>
@@ -35,38 +36,86 @@
             </div>
         </div>
     </div>
-
-    {% for isp in isps %}
-        <div class="container" id="{{isp}}">
-            <h3>{{isp}}</h3>
-            {% for location in locations[isp] %}
-
-                <div class="container {{location|replace(' ', '_')}}">
-                    <h4>location: {{location}}</h4>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <td>Test</td>
-                                <td>Test Result</td>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-
+    <div class="container">
+        <form class="form-inline" id="shareForm">
+            <div class="input-group">
+                <input type="text" class="form-control" id="shareLink" {% if current_url %}value="{{current_url}}"{% endif %} readonly="true">
+                <div class="input-group-btn">
+                    <button type="button" class="btn btn-default" id="clickShare" data-clipboard-text="{{current_url}}">Copy</button>
                 </div>
-            {% endfor %}
-        </div>
-    {% endfor %}
+            </div>
+        </form>
+    </div>
+    {% if share %}
+        {% for isp, locations in output.iteritems() %}
+            <div class="container" id="{{isp}}">
+                <h3>{{isp}}</h3>
+                {% for location, tasks in locations.iteritems() %}
+                    <div class="container {{location|replace(' ','_')}}">
+                        <h4>location: {{location}}</h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <td>Test</td>
+                                    <td>Test Result</td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks %}
+                                <tr>
+                                    <td>{{task.description}}</td>
+                                    {% if task.task_status == "PENDING" %}
+                                        <td class="bg-warning">{{task.reason}} {{task.status}} </td>
+                                    {% elif task.task_status == "FAILURE" %}
+                                        <td class="bg-danger">{{task.reason}} {{task.status}}</td>
+                                    {% else %}
+                                        <td class="bg-success">{{task.reason}} {{task.status}}</td>
+                                    {% endif %}
+
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        {% for isp in isps %}
+            <div class="container" id="{{isp}}">
+                <h3>{{isp}}</h3>
+                {% for location in locations[isp] %}
+
+                    <div class="container {{location|replace(' ', '_')}}">
+                        <h4>location: {{location}}</h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <td>Test</td>
+                                    <td>Test Result</td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+
+                    </div>
+                {% endfor %}
+
+            </div>
+        {% endfor %}
+    {% endif %}
 
 
 
 
 </body>
+<script src="/static/ZeroClipboard.js"></script>
 <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
 
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+
 <script type="text/javascript" charset="utf-8">
     function generateUUID(){
         var d = new Date().getTime();
@@ -81,7 +130,19 @@
 
         var transaction_id = null;
         var check = io.connect("http://" + document.domain+":" + location.port + "/check");
+
+        var cpm_client = new ZeroClipboard($("#clickShare"), { moviePath: "/static/ZeroClipboard.swf"});
+        console.log(cpm_client);
+        cpm_client.on("ready", function(readyEvent){
+            console.log("Loaded");
+            cpm_client.on("aftercopy", function(event){
+                console.log(event.data);
+
+            });
+        });
+
         check.on("result_received", function(data){
+            console.log(data);
             var task_id = data["task_id"];
             var current_element = "#"+ data["ISP"] + " ." + data["location"].replace(" ", "_") + " table";
             var task_element = "#" + task_id;
@@ -114,6 +175,10 @@
         $("#callCheck").click(function(){
 
             transaction_id = generateUUID();
+            var link_url="http://127.0.0.1:5052/" + transaction_id + ".html";
+            $("#shareLink").val(link_url);
+            $("#clickShare").attr("data-clipboard-text", link_url);
+            console.log($("#clickShare").data("clipboard-text"));
 
             console.log($("#targetURL").val());
             $("#error_msg").empty();
