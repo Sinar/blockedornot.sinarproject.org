@@ -10,10 +10,10 @@ LOCATIONS:
       - http
       - dns_TM
       - dns_opendns
-      - dns_google
-
-
-
+      - dns_googl
+      - http_TM
+      - http_google
+      - http_opendns
 
 # Maybe we should store in a db instead
 TESTSUITES:
@@ -38,18 +38,25 @@ TESTSUITES:
       - 1.9.1.9
   http:
     description: Test fetching website
-
-
-DNS_TARGETS:
-  - server: 8.8.8.8
-    provider: google
-  - server: 8.8.4.4
-    provider: google
-  - server: 208.67.222.222
+  http_dpi_tampering:
+    description: Tampering of HTTP request with DPI tool
+  # I don't know what to call this
+  http_opendns:
     provider: opendns
-  - server: 208.67.220.220
-    provider: opendns
-  - server: 202.188.0.133
+    description: HTTP test with IP from OpenDNS  servers
+    servers:
+      - 208.67.222.222
+      - 208.67.220.220
+  http_google:
+    provider: google
+    description: HTTP test with IP from google DNS server
+    servers:
+      - 8.8.8.8
+      - 8.8.4.4
+  http_TM:
     provider: TM
-  - server: 202.188.1.5
-    provider: TM
+    description: HTTP test with IP from TMNet server
+    servers:
+      - 202.188.0.133
+      - 202.188.1.5
+      - 1.9.1.9

@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 __author__ = 'sweemeng'
 from gevent import monkey; monkey.patch_all()
 # Because socketio module uses gevent
@@ -16,10 +15,13 @@ from worker import call_dns_task
 from worker import call_http_dpi_tampering_task
 from worker import update_entry
 from worker import post_update
+from worker import call_full_request_task
 from celery import chain
 import re
 import logging
+from logging.handlers import RotatingFileHandler
 import uuid
+import os
 
 
 app = create_app()
@@ -56,6 +58,9 @@ def index():
     testdetail = app.config["TESTSUITES"]
     return render_template("index.html", isps=isps, locations=locations, testsuites=testsuites, testdetail=testdetail,
                            transaction_id=transaction_id)
+@app.route("/about")
+def about():
+    return render_template("about.html")
 
 @app.route("/postback", methods=["POST"])
 def postback():
@@ -121,6 +126,7 @@ def call_check(data):
             logging.warn(location_queue)
 
             input_data["test_type"] = testsuite
+            # TODO: Simplify this
             if testsuite in ("dns_google", "dns_TM", "dns_opendns"):
                 for server in app.config["TESTSUITES"][testsuite]["servers"]:
                     input_data["task_id"] = str(uuid.uuid4())
@@ -139,8 +145,29 @@ def call_check(data):
                             update_entry.s().set(queue="basecamp"),
                             post_update.s().set(queue="basecamp")
                         ).apply_async()
+                    emit("result_received", result_data.to_json(), room=result_data.transaction_id)
 
-            else:
+            elif testsuite in ("http_google", "http_TM", "http_opendns"):
+                for server in app.config["TESTSUITES"][testsuite]["servers"]:
+                    input_data["task_id"] = str(uuid.uuid4())
+
+                    extra_attr = {
+                        "provider": app.config["TESTSUITES"][testsuite]["provider"],
+                        "server": server
+                    }
+                    input_data["extra_attr"] = extra_attr
+                    logging.warn("DNS Check")
+                    description = "%s server: %s " % (app.config["TESTSUITES"][testsuite]["description"], server)
+                    input_data["description"] = description
+                    result_data = ResultData.from_json(input_data, extra_attr=extra_attr)
+                    task = chain(
+                            call_full_request_task.s(result_data.to_json()).set(queue=location_queue),
+                            update_entry.s().set(queue="basecamp"),
+                            post_update.s().set(queue="basecamp")
+                        ).apply_async()
+                    emit("result_received", result_data.to_json(), room=result_data.transaction_id)
+
+            elif testsuite in ("http", "http_dpi_tampering"):
                 input_data["task_id"] = str(uuid.uuid4())
 
                 input_data["description"] = app.config["TESTSUITES"][testsuite]["description"]
@@ -158,9 +185,18 @@ def call_check(data):
                         update_entry.s().set(queue="basecamp"),
                         post_update.s().set(queue="basecamp")
                     ).apply_async()
-            emit("result_received", result_data.to_json(), room=result_data.transaction_id)
+                emit("result_received", result_data.to_json(), room=result_data.transaction_id)
+
 
 if __name__ == "__main__":
     app.debug=True
+    current_path = os.path.dirname(__file__)
+    path = os.path.join(current_path, "log", "blockedornot.log")
+
+    handler = RotatingFileHandler(path, maxBytes=10000, backupCount=2)
+    # This project is in development. So yeah I need it.
+    # Reduce level once we consider this out of development
+    handler.setLevel(logging.DEBUG)
+    app.logger.addHandler(handler)
     socketio.run(app, host="0.0.0.0", port=app.config["PORT"], use_reloader=True)
     #app.run(host="0.0.0.0", debug=True)

@@ -91,19 +91,12 @@ def call_dns_task(data):
         resolver.nameservers = [data["extra_attr"]["server"]]
     try:
         answer = resolver.query(url)
-        for entry in answer:
-            ip = entry.to_text()
-            r = requests.get("http://%s" % ip, headers={"Host":url})
-
-            if r.status_code == 200:
-
-                if MCMC_BLOCK_PAGE_HEADER.search(r.content):
-                    if MCMC_BLOCK_PAGE_PATTERN.search(r.content):
-                        reason = "Unavailable For Legal Reasons"
-                        status = "Error"
-                else:
-                    reason = "Content resolved properly"
-                    status = "OK"
+        if answer:
+            reason = "Content resolved properly"
+            status = "OK"
+        else:
+            reason = "Interesting, there is no answer for this DNS Query"
+            status = "Error"
 
     except dns.resolver.NXDOMAIN as e:
         status = "NXDOMAIN"
@@ -118,6 +111,63 @@ def call_dns_task(data):
         reason = "Unhandled reception, bug the guys to find out"
 
     if status != "OK":
+        task_status = states.FAILURE
+    else:
+        task_status = states.SUCCESS
+
+    result = {
+        "task_id": data["task_id"],
+        "status": task_status,
+        "status_code": status,
+        "reason": reason
+    }
+    return result
+
+
+@backend.task
+def call_full_request_task(data):
+    url = data["url"]
+    if not re.match(r"^http://", url):
+        url = "http://%s" % url
+    parsed_url = urlparse.urlparse(url)
+    url = parsed_url.netloc
+    resolver = dns.resolver.Resolver()
+    reason = ""
+    status = ""
+    if data["extra_attr"].get("server"):
+        resolver.nameservers = [data["extra_attr"]["server"]]
+    try:
+        answer = resolver.query(url)
+        for entry in answer:
+            ip = entry.to_text()
+            r = requests.get("http://%s" % ip, headers={"Host":url})
+
+            if r.status_code == 200:
+
+                if MCMC_BLOCK_PAGE_HEADER.search(r.content):
+                    if MCMC_BLOCK_PAGE_PATTERN.search(r.content):
+                        reason = "Unavailable For Legal Reasons"
+                        status = 451
+                else:
+                    reason = r.reason
+                    status = r.status_code
+            else:
+                status = r.status_code
+                reason = r.reason
+
+    except dns.resolver.NXDOMAIN as e:
+        status = "NXDOMAIN"
+        reason = "Domain cannot be resolved"
+
+    except dns.resolver.Timeout:
+        status = "Timeout"
+        reason = "Timed out trying to resolve %s" % url
+
+    except dns.exception.DNSException:
+        status = "Error"
+        reason = "Unhandled reception, bug the guys to find out"
+
+    if status != 200:
         task_status = states.FAILURE
     else:
         task_status = states.SUCCESS
