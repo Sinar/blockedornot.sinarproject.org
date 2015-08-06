@@ -140,7 +140,24 @@ def call_full_request_task(data):
         answer = resolver.query(url)
         for entry in answer:
             ip = entry.to_text()
-            r = requests.get("http://%s" % ip, headers={"Host":url})
+            try:
+                r = requests.get("http://%s" % ip, headers={"Host":url})
+            except requests.TooManyRedirects as e:
+                reason = e.message
+                status = "TooManyRedirect"
+                continue
+            except requests.ConnectionError as e:
+                reason = e.message
+                status = "ConnectionError"
+                continue
+            except requests.Timeout as e:
+                reason = e.message
+                status = "TimeOut"
+                continue
+            except requests.RequestException as e:
+                reason = e.message
+                status = "Error"
+                continue
 
             if r.status_code == 200:
 

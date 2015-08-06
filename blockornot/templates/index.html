@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
+
     <div class="jumbotron">
         <div class="container">
+            <div class="alert alert-danger" role="alert">Warning this project is still activelly developed. Contact us via <a href="mailto:team@sinarproject.org">email</a> if you found any issue or you can report issue on <a href="https://github.com/Sinar/blockedornot.sinarproject.org/issues">Github</a></div>
+
             <div class="row">
                 <div class="col-lg-8 col-lg-offset-2">
                     <div id="error_msg"></div>
@@ -17,6 +20,7 @@
         </div>
     </div>
     <div class="container">
+
         <form class="form-inline" id="shareForm">
             <div class="input-group">
                 <input type="text" class="form-control" id="shareLink" {% if current_url %}value="{{current_url}}"{% endif %} readonly="true">
