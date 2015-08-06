@@ -20,4 +20,5 @@ def create_app():
     app.config["BROKER_TRANSPORT_OPTIONS"] = {'socket_timeout': 7200}
     app.config["URL"] = config["URL"]
     app.config["CALLBACK_URL"] = config["CALLBACK_URL"]
+    app.config["CELERY_TASK_SERIALIZER"] = "json"
     return app
