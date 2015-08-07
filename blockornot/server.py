@@ -71,6 +71,7 @@ def postback():
 
 @app.route("/<transaction_id>.json")
 def fetch_json(transaction_id):
+
     result_data = ResultData.select().where(ResultData.transaction_id==transaction_id)
     output = []
     for entry in result_data:
@@ -96,12 +97,31 @@ def fetch_html(transaction_id):
 
 @app.route("/dump")
 def dump_json():
+    ITEM_PER_PAGE = 10
+    page = request.args.get("page")
+    if not page:
+        page = 1
+    page = int(page)
     output = []
     result_data = ResultData.select()
-    for entry in result_data:
+    count = result_data.count()
+    result_page = result_data.paginate(page, paginate_by=ITEM_PER_PAGE)
+    num_page = count / ITEM_PER_PAGE + 1
+    for entry in result_page:
         output.append(entry.to_json())
+    json_output = {
+        "pages": num_page,
+        "total": count,
+        "page": page,
+        "item_per_page": ITEM_PER_PAGE,
+        "results": output
+    }
+    if page > 1:
+        json_output["prev_url"] = "%s/dump?page=%s" % (app.config["URL"], page - 1)
+    if page < num_page:
+        json_output["next_url"] = "%s/dump?page=%s" % (app.config["URL"], page + 1)
 
-    return jsonify({ "results": output, "total": len(output) })
+    return jsonify(json_output)
 
 
 
