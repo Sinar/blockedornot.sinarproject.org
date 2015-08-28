@@ -14,6 +14,7 @@ import urlparse
 from models import db
 from models import ResultData
 import json
+from bs4 import BeautifulSoup
 
 app = create_app()
 
@@ -160,11 +161,17 @@ def call_full_request_task(data):
                 continue
 
             if r.status_code == 200:
-
+                soup = BeautifulSoup(r.content)
                 if MCMC_BLOCK_PAGE_HEADER.search(r.content):
                     if MCMC_BLOCK_PAGE_PATTERN.search(r.content):
                         reason = "Unavailable For Legal Reasons"
                         status = 451
+                # TODO: What other way for people to show error this way
+                # TODO: What other way for the block page to look like
+                # TODO: Arguably this can also be caused by incompetent developer
+                elif "404 - File or directory not found" in soup.title.text:
+                    reason = "Status code is 200 but title is '%s'" % soup.title.text
+                    status = "UNKNOWN"
                 else:
                     reason = r.reason
                     status = r.status_code
